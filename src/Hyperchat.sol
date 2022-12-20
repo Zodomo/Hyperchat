@@ -16,7 +16,7 @@ abstract contract Hyperchat is IMessageRecipient, Ownable2Step {
 
     error InvalidConversation();
     error InvalidParticipant();
-    error InvalidDestination();
+    error InvalidInstance();
 
     /*//////////////////////////////////////////////////////////////////////////////////////////////////
                 STORAGE
@@ -50,7 +50,7 @@ abstract contract Hyperchat is IMessageRecipient, Ownable2Step {
     //////////////////////////////////////////////////////////////////////////////////////////////////*/
 
     modifier requireValid(uint256 _conversationID) {
-        if (_conversations[_conversationID].conversationID == 0) {
+        if (_conversationID == 0) {
             revert InvalidConversation();
         }
         if (!_conversations[_conversationID].parties[addressToBytes32(msg.sender)]) {
@@ -60,9 +60,7 @@ abstract contract Hyperchat is IMessageRecipient, Ownable2Step {
     }
 
     modifier requireDeployed(uint32 _hyperlaneDomain) {
-        if (_hyperchatInstance[_hyperlaneDomain] == bytes32(0)) {
-            revert InvalidDestination();
-        }
+        _checkInstance(_hyperlaneDomain);
         _;
     }
 
@@ -108,6 +106,17 @@ abstract contract Hyperchat is IMessageRecipient, Ownable2Step {
     // Converts address to bytes32 for Hyperlane
     function addressToBytes32(address _address) public pure returns (bytes32) {
         return bytes32(uint256(uint160(_address)));
+    }
+
+    /*//////////////////////////////////////////////////////////////////////////////////////////////////
+                SECURITY
+    //////////////////////////////////////////////////////////////////////////////////////////////////*/
+
+    // Confirm received message is to/from a valid Hyperchat node
+    function _checkInstance(uint32 _hyperlaneDomain) internal view {
+        if (_hyperchatInstance[_hyperlaneDomain] == bytes32(0)) {
+            revert InvalidInstance();
+        }
     }
 
     /*//////////////////////////////////////////////////////////////////////////////////////////////////
@@ -168,20 +177,24 @@ abstract contract Hyperchat is IMessageRecipient, Ownable2Step {
         envelope.timestamp = block.timestamp;
         envelope.sender = sender;
         envelope.message = _message;
+        bytes memory Envelope = abi.encode(envelope);
 
         // If recipient domain is current chain, process logic here
         if (_hyperlaneDomain == HYPERLANE_DOMAIN_IDENTIFIER) {
-            _processMessage(abi.encode(envelope));
+            _processMessage(Envelope);
         }
         // Otherwise, use Hyperlane to send envelope to destination
         else {
+            // Commit Envelope to current Hyperchat node
+            _processMessage(Envelope);
+
             IOutbox(HYPERLANE_OUTBOX).dispatch(
                 _hyperlaneDomain,
                 _hyperchatInstance[_hyperlaneDomain],
-                abi.encode(envelope)
+                Envelope
             );
 
-            emit Sent(_hyperlaneDomain, _hyperchatInstance[_hyperlaneDomain], abi.encode(envelope));
+            emit Sent(_hyperlaneDomain, _hyperchatInstance[_hyperlaneDomain], Envelope);
         }
     }
 
@@ -189,5 +202,20 @@ abstract contract Hyperchat is IMessageRecipient, Ownable2Step {
                 RECEIVE MESSAGE LOGIC
     //////////////////////////////////////////////////////////////////////////////////////////////////*/
 
+    // Receive logic is embedded in the below Hyperlane-compliant handle() function
+    function handle(
+        uint32 _origin,
+        bytes32 _sender,
+        bytes calldata _messageBody
+    ) external {
+        // Block messages from non-deployed chains
+        _checkInstance(_origin);
+        // Require _sender is a valid Hyperchat node
+        if (_sender != _hyperchatInstance[_origin]) {
+            revert InvalidInstance();
+        }
 
+        // Process message
+        _processMessage(_messageBody);
+    }
 }
