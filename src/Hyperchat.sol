@@ -4,7 +4,7 @@ pragma solidity ^0.8.17;
 import "./Hyperlane.sol";
 
 // Hyperchat is a contract that leverages the Hyperlane Messaging API to relay chat messages to users of any chain
-abstract contract HyperchatStation is IOutbox, IMessageRecipient {
+abstract contract Hyperchat is IOutbox, IMessageRecipient {
 
     /*//////////////////////////////////////////////////////////////////////////////////////////////////
                 STORAGE
@@ -39,16 +39,21 @@ abstract contract HyperchatStation is IOutbox, IMessageRecipient {
                 CONSTRUCTOR
     //////////////////////////////////////////////////////////////////////////////////////////////////*/
 
-    constructor() payable {
+    constructor(uint32 _hyperlaneDomainID, address _hyperlaneOutbox) payable {
         // Set to Hyperlane Domain Identifier of Station chain
-        HYPERLANE_DOMAIN_IDENTIFIER = 0x6f70; // Optimism Mainnet
+        HYPERLANE_DOMAIN_IDENTIFIER = _hyperlaneDomainID;
         // Set to Hyperlane Outbox on Station chain
-        HYPERLANE_OUTBOX = 0x0be2Ae2f6D02a3e0e00ECB57D3E1fCbb7f8F38F4; // Optimism Mainnet
+        HYPERLANE_OUTBOX = _hyperlaneOutbox;
     }
 
     /*//////////////////////////////////////////////////////////////////////////////////////////////////
                 LIBRARY
     //////////////////////////////////////////////////////////////////////////////////////////////////*/
+
+    // Converts string to bytes
+    function stringToBytes(string memory _string) internal pure returns (bytes memory) {
+        return bytes(_string);
+    }
 
     // Converts address to bytes32 for Hyperlane
     function addressToBytes32(address _address) internal pure returns (bytes32) {
@@ -56,10 +61,28 @@ abstract contract HyperchatStation is IOutbox, IMessageRecipient {
     }
 
     /*//////////////////////////////////////////////////////////////////////////////////////////////////
-                HYPERLANE OUTBOX LOGIC
+                HYPERLANE OUTBOX (SEND) LOGIC
     //////////////////////////////////////////////////////////////////////////////////////////////////*/
 
+    // Send message via Hyperlane
+    function sendMessage(uint32 _hyperlaneDomain, address _recipient, string memory _message) public {
+        sendMessage(_hyperlaneDomain, _recipient, stringToBytes(_message));
+    }
+
+    // Send message via Hyperlane
+    function sendMessage(uint32 _hyperlaneDomain, address _recipient, bytes memory _message) public {
+        if (_hyperlaneDomain == HYPERLANE_DOMAIN_IDENTIFIER) {
+
+        } else {
+            IOutbox(HYPERLANE_OUTBOX).dispatch(
+                _hyperlaneDomain,
+                addressToBytes32(_recipient),
+                _message
+            );
+        }
+    }
+
     /*//////////////////////////////////////////////////////////////////////////////////////////////////
-                HYPERLANE INBOX LOGIC
+                HYPERLANE INBOX (RECEIVE) LOGIC
     //////////////////////////////////////////////////////////////////////////////////////////////////*/
 }
