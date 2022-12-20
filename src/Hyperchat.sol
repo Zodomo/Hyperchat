@@ -217,5 +217,7 @@ abstract contract Hyperchat is IMessageRecipient, Ownable2Step {
 
         // Process message
         _processMessage(_messageBody);
+
+        emit Received(_origin, abi.decode(_messageBody, (Message)).sender, abi.decode(_messageBody, (Message)).message);
     }
 }
