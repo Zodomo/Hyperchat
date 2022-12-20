@@ -54,6 +54,8 @@ function sendMessage(
         - This is ideally abstracted away by the frontend
     - `_message` is the message being sent
         - An overload of this function is available that accepts string input for the message instead of bytes
+    - `requireDeployed(_hyperlaneDomain)` validates that Hyperchat has been deployed on the target chain
+    - `requireValid(_conversationID)` validates that the conversation exists and that the sender is a participant
     
 ## Installation
 
