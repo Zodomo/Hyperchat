@@ -2,9 +2,10 @@
 pragma solidity ^0.8.17;
 
 import "./Hyperlane.sol";
+import "openzeppelin-contracts/access/Ownable2Step.sol";
 
 // Hyperchat is a contract that leverages the Hyperlane Messaging API to relay chat messages to users of any chain
-abstract contract Hyperchat is IOutbox, IMessageRecipient {
+abstract contract Hyperchat is IOutbox, IMessageRecipient, Ownable2Step {
 
     /*//////////////////////////////////////////////////////////////////////////////////////////////////
                 STORAGE
@@ -52,7 +53,7 @@ abstract contract Hyperchat is IOutbox, IMessageRecipient {
     //////////////////////////////////////////////////////////////////////////////////////////////////*/
 
     // Setup Hyperlane Inbox addresses in a batched fashion
-    function manageHyperlaneInboxes(uint32[] calldata _hlDomainID, address[] calldata _hlInbox) public {
+    function manageHyperlaneInboxes(uint32[] calldata _hlDomainID, address[] calldata _hlInbox) public onlyOwner {
         // Require parameter array lengths match
         require(_hlDomainID.length == _hlInbox.length, "Hyperchat::manageHyperlaneInboxes::PARAMETER_LENGTH");
         for (uint i; i < _hlDomainID.length;) {
