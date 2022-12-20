@@ -11,8 +11,8 @@ abstract contract HyperchatStation is IOutbox, IMessageRecipient {
     //////////////////////////////////////////////////////////////////////////////////////////////////*/
 
     // Hyperlane data structures
-    // uint32 public immutable HYPERLANE_DOMAIN_IDENTIFIER;
-    // address public immutable HYPERLANE_OUTBOX;
+    uint32 public immutable HYPERLANE_DOMAIN_IDENTIFIER;
+    address public immutable HYPERLANE_OUTBOX;
 
     struct Message {
         uint256 conversationID;
@@ -41,9 +41,9 @@ abstract contract HyperchatStation is IOutbox, IMessageRecipient {
 
     constructor() payable {
         // Set to Hyperlane Domain Identifier of Station chain
-        // HYPERLANE_DOMAIN_IDENTIFIER =
+        HYPERLANE_DOMAIN_IDENTIFIER = 0x6f70; // Optimism Mainnet
         // Set to Hyperlane Outbox on Station chain
-        // HYPERLANE_OUTBOX = 
+        HYPERLANE_OUTBOX = 0x0be2Ae2f6D02a3e0e00ECB57D3E1fCbb7f8F38F4; // Optimism Mainnet
     }
 
     /*//////////////////////////////////////////////////////////////////////////////////////////////////

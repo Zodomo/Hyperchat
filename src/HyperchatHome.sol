@@ -41,9 +41,9 @@ abstract contract HyperchatHome is IOutbox, IMessageRecipient {
 
     constructor() payable {
         // Set to Hyperlane Domain Identifier of Station chain
-        HYPERLANE_DOMAIN_IDENTIFIER = 0x617262;
+        HYPERLANE_DOMAIN_IDENTIFIER = 0x617262; // Arbitrum Mainnet
         // Set to Hyperlane Outbox on Station chain
-        HYPERLANE_OUTBOX = 0x0761b0827849abbf7b0cC09CE14e1C93D87f5004;
+        HYPERLANE_OUTBOX = 0x0761b0827849abbf7b0cC09CE14e1C93D87f5004; // Arbitrum Mainnet
     }
 
     /*//////////////////////////////////////////////////////////////////////////////////////////////////
