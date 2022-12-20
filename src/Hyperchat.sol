@@ -11,8 +11,9 @@ abstract contract Hyperchat is IOutbox, IMessageRecipient {
     //////////////////////////////////////////////////////////////////////////////////////////////////*/
 
     // Hyperlane data structures
-    uint32 public immutable HYPERLANE_DOMAIN_IDENTIFIER;
-    address public immutable HYPERLANE_OUTBOX;
+    uint32 private immutable HYPERLANE_DOMAIN_IDENTIFIER;
+    address private immutable HYPERLANE_OUTBOX;
+    mapping(uint32 => address) private _hyperlaneInbox;
 
     struct Message {
         uint256 conversationID;
@@ -44,6 +45,21 @@ abstract contract Hyperchat is IOutbox, IMessageRecipient {
         HYPERLANE_DOMAIN_IDENTIFIER = _hyperlaneDomainID;
         // Set to Hyperlane Outbox on Station chain
         HYPERLANE_OUTBOX = _hyperlaneOutbox;
+    }
+
+    /*//////////////////////////////////////////////////////////////////////////////////////////////////
+                MANAGEMENT
+    //////////////////////////////////////////////////////////////////////////////////////////////////*/
+
+    // Setup Hyperlane Inbox addresses in a batched fashion
+    function manageHyperlaneInboxes(uint32[] calldata _hlDomainID, address[] calldata _hlInbox) public {
+        // Require parameter array lengths match
+        require(_hlDomainID.length == _hlInbox.length, "Hyperchat::manageHyperlaneInboxes::PARAMETER_LENGTH");
+        for (uint i; i < _hlDomainID.length;) {
+            _hyperlaneInbox[_hlDomainID[i]] = _hlInbox[i];
+            // Shouldn't overflow because it is a management function
+            unchecked { ++i; }
+        }
     }
 
     /*//////////////////////////////////////////////////////////////////////////////////////////////////
