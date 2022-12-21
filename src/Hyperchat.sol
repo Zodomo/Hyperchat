@@ -5,7 +5,7 @@ pragma solidity ^0.8.17;
 import "openzeppelin-contracts/access/Ownable2Step.sol";
 
 // Hyperchat is a contract that leverages the Hyperlane Messaging API to relay chat messages to users of any chain
-abstract contract Hyperchat is /*Router,*/ Ownable2Step {
+abstract contract Hyperchat is Ownable2Step {
 
     /*//////////////////////////////////////////////////////////////////////////////////////////////////
                 EVENTS/ERRORS
