@@ -12,8 +12,12 @@ abstract contract Hyperchat is IMessageRecipient, Ownable2Step {
     //////////////////////////////////////////////////////////////////////////////////////////////////*/
 
     event ConversationCreated(uint256 indexed conversationID, uint32[] indexed chainIDs, bytes32[] indexed parties);
-    event MessageSent(uint32 indexed chainID, bytes indexed message);
-    event MessageReceived(uint32 indexed chainID, bytes indexed message);
+    event ParticipantAdded(uint256 indexed conversationID, bytes32 indexed participant);
+    event ParticipantRemoved(uint256 indexed conversationID, bytes32 indexed participant);
+    event ChainAdded(uint256 indexed conversationID, bytes32 indexed chainID);
+    event ChainRemoved(uint256 indexed conversationID, bytes32 indexed chainID);
+    event MessageSent(uint32 indexed chainID, bytes indexed message, bytes32 indexed sender);
+    event MessageReceived(uint32 indexed chainID, bytes indexed message, uint256 indexed messageNum);
 
     error InvalidConversation();
     error InvalidParticipant();
@@ -35,15 +39,16 @@ abstract contract Hyperchat is IMessageRecipient, Ownable2Step {
         bytes message;
     }
     // conversationID => messageNum => Message data struct
-    mapping(uint256 => mapping(uint256 => Message)) private _messages;
+    mapping(bytes32 => mapping(uint256 => Message)) private _messages;
 
     struct Conversation {
-        uint256 conversationID;
         uint256 messageCount;
+        bytes32 conversationID;
+        uint32[] chainIDs;
         mapping(bytes32 => bool) parties;
     }
     // conversationID => Conversation data struct
-    mapping(uint256 => Conversation) private _conversations;
+    mapping(bytes32 => Conversation) private _conversations;
     uint256 private conversationCount;
 
     /*//////////////////////////////////////////////////////////////////////////////////////////////////
