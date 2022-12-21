@@ -12,6 +12,10 @@ abstract contract Hyperchat is /*Router,*/ Ownable2Step {
     //////////////////////////////////////////////////////////////////////////////////////////////////*/
 
     event ConversationCreated(bytes32 indexed conversationID, bytes32 indexed initiator);
+    event AdminApprovalAdded(bytes32 indexed conversationID, bytes32 indexed admin, bytes32 indexed approval);
+    event AdminApprovalRemoved(bytes32 indexed conversationID, bytes32 indexed admin, bytes32 indexed approval);
+    event AdminAdded(bytes32 indexed conversationID, bytes32 indexed admin);
+    event AdminRemoved(bytes32 indexed conversationID, bytes32 indexed admin);
     event ParticipantAdded(bytes32 indexed conversationID, bytes32 indexed participant);
     event ParticipantRemoved(bytes32 indexed conversationID, bytes32 indexed participant);
     event ChainAdded(bytes32 indexed conversationID, bytes32 indexed domainID);
@@ -22,7 +26,10 @@ abstract contract Hyperchat is /*Router,*/ Ownable2Step {
     error InvalidConversation();
     error InvalidParticipant();
     error InvalidInstance();
+    error InvalidLength();
     error NotAdmin();
+    error AdminApprovals();
+    error AlreadyApproved();
 
     /*//////////////////////////////////////////////////////////////////////////////////////////////////
                 STORAGE
@@ -45,7 +52,9 @@ abstract contract Hyperchat is /*Router,*/ Ownable2Step {
         uint256 messageCount;
         bytes32 conversationID;
         uint32[] domainIDs;
-        mapping(bytes32 => bool) admins;
+        bytes32[] admins;
+        mapping(bytes32 => bool) isAdmin;
+        mapping(bytes32 => mapping(bytes32 => bool)) adminApprovals;
         mapping(bytes32 => bool) parties;
     }
     // conversationID => Conversation data struct
@@ -67,7 +76,7 @@ abstract contract Hyperchat is /*Router,*/ Ownable2Step {
     }
 
     modifier onlyAdmin(bytes32 _conversationID) {
-        if (!_conversations[_conversationID].admins[addressToBytes32(msg.sender)]) {
+        if (!_conversations[_conversationID].isAdmin[addressToBytes32(msg.sender)]) {
             revert NotAdmin();
         }
         _;
@@ -141,6 +150,22 @@ abstract contract Hyperchat is /*Router,*/ Ownable2Step {
                 INTERNAL FUNCTIONS
     //////////////////////////////////////////////////////////////////////////////////////////////////*/
 
+    // Removes admin at admins array _index
+    function _removeFromAdminArray(bytes32 _conversationID, uint256 _index) internal {
+        uint256 length = _conversations[_conversationID].admins.length;
+        if (_index > length) {
+            revert InvalidLength();
+        }
+
+        for (uint i = _index; i < length - 1;) {
+            _conversations[_conversationID].admins[i] = _conversations[_conversationID].admins[i + 1];
+            // Shouldn't overflow
+            unchecked { ++i; }
+        }
+
+        _conversations[_conversationID].admins.pop();
+    }
+
     /*
     // Process Message data
     function _processMessage(bytes memory _envelope) internal {
@@ -170,7 +195,7 @@ abstract contract Hyperchat is /*Router,*/ Ownable2Step {
     */
 
     /*//////////////////////////////////////////////////////////////////////////////////////////////////
-                PRIMARY CONVERSATION FUNCTIONS
+                CONVERSATION MANAGEMENT FUNCTIONS
     //////////////////////////////////////////////////////////////////////////////////////////////////*/
 
     // Initiate a conversation
@@ -179,6 +204,9 @@ abstract contract Hyperchat is /*Router,*/ Ownable2Step {
         bytes32[] memory _parties,
         bytes memory _seed
     ) public returns (bytes32 conversationID) {
+        // Convert msg.sender address
+        bytes32 admin = addressToBytes32(msg.sender);
+
         //Increment conversationCount
         conversationCount += 1;
 
@@ -202,7 +230,10 @@ abstract contract Hyperchat is /*Router,*/ Ownable2Step {
         // Initialize Conversation
         _conversations[conversationID].conversationID = conversationID;
         // Set initializer as conversation admin
-        _conversations[conversationID].admins[addressToBytes32(msg.sender)] = true;
+        _conversations[conversationID].admins.push(admin);
+        _conversations[conversationID].isAdmin[admin] = true;
+        _conversations[conversationID].adminApprovals[admin][admin] = true;
+
         
         // Process Hyperlane domain IDs
         for (uint i; i < _domainIDs.length;) {
@@ -218,13 +249,117 @@ abstract contract Hyperchat is /*Router,*/ Ownable2Step {
         return conversationID;
     }
 
-    // Add an address as an admin
-    function addAdmin(bytes32 _conversationID, bytes32 _address) public onlyAdmin(_conversationID) {
+    // Vote for an address to become a conversation admin
+    function adminAddApproval(bytes32 _conversationID, bytes32 _address) public onlyAdmin(_conversationID) {
+        // Convert msg.sender address
+        bytes32 admin = addressToBytes32(msg.sender);
+        
+        // Set admin vote for admin rights approval
+        _conversations[_conversationID].adminApprovals[admin][_address] = true;
 
+        emit AdminApprovalAdded(_conversationID, admin, _address);
+    }
+
+    // Vote for an address to lose its conversation admin rights
+    function adminRemoveApproval(bytes32 _conversationID, bytes32 _address) public onlyAdmin(_conversationID) {
+        // Convert msg.sender address
+        bytes32 admin = addressToBytes32(msg.sender);
+        
+        // Remove admin vote for admin rights approval
+        _conversations[_conversationID].adminApprovals[admin][_address] = false;
+
+        emit AdminApprovalRemoved(_conversationID, admin, _address);
+    }
+
+    // Give an approved address conversation admin rights
+    function addAdmin(bytes32 _conversationID, bytes32 _address) public onlyAdmin(_conversationID) {
+        // Keep count of admin count and approvals
+        uint256 adminCount = _conversations[_conversationID].admins.length;
+
+        // Keep track of approval count for following for loop
+        uint256 approvals;
+        // Check each admin's approval status for _address
+        for (uint i; i < adminCount;) {
+            // Retrieve admin address at index i
+            bytes32 adminAddress = _conversations[_conversationID].admins[i];
+
+            // Count approval (if any)
+            if (_conversations[_conversationID].adminApprovals[adminAddress][_address]) {
+                approvals += 1;
+            }
+
+            // Once 51% approval threshold is met, break loop to save gas
+            if (approvals > adminCount / 2) {
+                break;
+            }
+
+            // Loop shouldn't ever overflow
+            unchecked { ++i; }
+        }
+
+        // If 51% approval threshold is met, give _address conversation admin rights
+        if (approvals > adminCount / 2) {
+            // Set admin data structures
+            _conversations[_conversationID].admins.push(_address);
+            _conversations[_conversationID].isAdmin[_address] = true;
+            _conversations[_conversationID].adminApprovals[_address][_address] = true;
+            adminCount += 1;
+
+            emit AdminAdded(_conversationID, _address);
+        } else {
+            revert AdminApprovals();
+        }
+    }
+
+    // Remove an addresss conversation admin rights
+    function removeAdmin(bytes32 _conversationID, bytes32 _address) public onlyAdmin(_conversationID) {
+        // Keep count of admin count and approvals
+        uint256 adminCount = _conversations[_conversationID].admins.length;
+
+        // Keep track of approval count for following for loop
+        uint256 approvals;
+        // Check each admin's approval status for _address
+        for (uint i; i < adminCount;) {
+            // Retrieve admin address at index i
+            bytes32 adminAddress = _conversations[_conversationID].admins[i];
+
+            // Count approval (if any)
+            if (_conversations[_conversationID].adminApprovals[adminAddress][_address]) {
+                approvals += 1;
+            }
+
+            // Loop shouldn't ever overflow
+            unchecked { ++i; }
+        }
+
+        // If 51% approval threshold isn't met, remove _address' conversation admin rights
+        if (approvals <= adminCount / 2) {
+            // Search through admins array for _address and remove it
+            for (uint j; j < adminCount;) {
+                if (_conversations[_conversationID].admins[j] == _address) {
+                    _removeFromAdminArray(_conversationID, j);
+                    break;
+                }
+            }
+
+            // Remove admin data structures
+            delete _conversations[_conversationID].isAdmin[_address];
+            delete _conversations[_conversationID].adminApprovals[_address][_address];
+            adminCount -= 1;
+
+            emit AdminRemoved(_conversationID, _address);
+        } else {
+            revert AdminApprovals();
+        }
     }
 
     // Add an address to a conversation
-    function addAddress(bytes32 _conversationID, bytes32 _address) public {
+    function addAddress(bytes32 _conversationID, bytes32 _address) public onlyAdmin(_conversationID) {
+
+    }
+
+    // Remove an address from a conversation
+    function removeAddress(bytes32 _conversationID, bytes32 _address) public onlyAdmin(_conversationID) {
 
     }
 
