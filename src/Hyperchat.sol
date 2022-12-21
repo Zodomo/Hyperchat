@@ -5,14 +5,15 @@ import "./Hyperlane.sol";
 import "openzeppelin-contracts/access/Ownable2Step.sol";
 
 // Hyperchat is a contract that leverages the Hyperlane Messaging API to relay chat messages to users of any chain
-contract Hyperchat is IMessageRecipient, Ownable2Step {
+abstract contract Hyperchat is IMessageRecipient, Ownable2Step {
 
     /*//////////////////////////////////////////////////////////////////////////////////////////////////
                 EVENTS/ERRORS
     //////////////////////////////////////////////////////////////////////////////////////////////////*/
 
-    event Sent(uint32 indexed chainID, bytes indexed message);
-    event Received(uint32 indexed chainID, bytes indexed message);
+    event ConversationCreated(uint256 indexed conversationID, uint32[] indexed chainIDs, bytes32[] indexed parties);
+    event MessageSent(uint32 indexed chainID, bytes indexed message);
+    event MessageReceived(uint32 indexed chainID, bytes indexed message);
 
     error InvalidConversation();
     error InvalidParticipant();
@@ -108,6 +109,7 @@ contract Hyperchat is IMessageRecipient, Ownable2Step {
         return bytes32(uint256(uint160(_address)));
     }
 
+    /*
     // Retrieves messages in hopefully a more RPC-efficient manner
     function retrieveMessages(
         uint256 _conversationID,
@@ -132,6 +134,7 @@ contract Hyperchat is IMessageRecipient, Ownable2Step {
 
         return messages;
     }
+    */
 
     /*//////////////////////////////////////////////////////////////////////////////////////////////////
                 SECURITY
@@ -148,6 +151,7 @@ contract Hyperchat is IMessageRecipient, Ownable2Step {
                 INTERNAL FUNCTIONS
     //////////////////////////////////////////////////////////////////////////////////////////////////*/
 
+    /*
     // Process Message data
     function _processMessage(bytes memory _envelope) internal {
         // Unpack Message data
@@ -173,11 +177,33 @@ contract Hyperchat is IMessageRecipient, Ownable2Step {
         }
         // TODO: If older than the last message, reorder messages
     }
+    */
+
+    /*//////////////////////////////////////////////////////////////////////////////////////////////////
+                INITIATE CONVERSATION LOGIC
+    //////////////////////////////////////////////////////////////////////////////////////////////////*/
+
+    // Initiate a conversation
+    function initiateConversation(uint32[] memory _chainIDs, bytes32[] memory _parties) public returns (uint256) {
+        // Generate conversation ID and initiate conversation by saving it
+        uint256 conversationID = conversationCount + 1;
+        _conversations[conversationID].conversationID = conversationID;
+        
+        // Loop through all addresses in _parties and add them to conversation allowlist
+        for (uint i; i < _parties.length;) {
+            _conversations[conversationID].parties[_parties[i]] = true;
+        }
+
+
+
+        emit ConversationCreated(conversationID, _chainIDs, _parties);
+    }
 
     /*//////////////////////////////////////////////////////////////////////////////////////////////////
                 SEND MESSAGE LOGIC
     //////////////////////////////////////////////////////////////////////////////////////////////////*/
 
+    /*
     // sendMessage overload
     function sendMessage(
         uint256 _conversationID,
@@ -217,13 +243,15 @@ contract Hyperchat is IMessageRecipient, Ownable2Step {
         // Commit Envelope to current Hyperchat node
         _processMessage(Envelope);
 
-        emit Sent(_hyperlaneDomain, Envelope);
+        emit MessageSent(_hyperlaneDomain, Envelope);
     }
+    */
 
     /*//////////////////////////////////////////////////////////////////////////////////////////////////
                 RECEIVE MESSAGE LOGIC
     //////////////////////////////////////////////////////////////////////////////////////////////////*/
 
+    /*
     // Receive logic is embedded in the below Hyperlane-compliant handle() function
     function handle(
         uint32 _origin,
@@ -240,6 +268,7 @@ contract Hyperchat is IMessageRecipient, Ownable2Step {
         // Process message
         _processMessage(_messageBody);
 
-        emit Received(_origin, _messageBody);
+        emit MessageReceived(_origin, _messageBody);
     }
+    */
 }
