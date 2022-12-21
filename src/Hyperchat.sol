@@ -355,12 +355,12 @@ abstract contract Hyperchat is /*Router,*/ Ownable2Step {
 
     // Add an address to a conversation
     function addAddress(bytes32 _conversationID, bytes32 _address) public onlyAdmin(_conversationID) {
-
+        _conversations[_conversationID].parties[_address] = true;
     }
 
     // Remove an address from a conversation
     function removeAddress(bytes32 _conversationID, bytes32 _address) public onlyAdmin(_conversationID) {
-
+        delete _conversations[_conversationID].parties[_address];
     }
 
     /*//////////////////////////////////////////////////////////////////////////////////////////////////
