@@ -54,8 +54,8 @@ abstract contract Hyperchat is Router, Ownable2Step {
                 MODIFIERS
     //////////////////////////////////////////////////////////////////////////////////////////////////*/
 
-    modifier requireValid(uint256 _conversationID) {
-        if (_conversationID == 0) {
+    modifier requireValid(bytes32 _conversationID) {
+        if (_conversations[_conversationID].conversationID == 0) {
             revert InvalidConversation();
         }
         if (!_conversations[_conversationID].parties[addressToBytes32(msg.sender)]) {
@@ -64,16 +64,14 @@ abstract contract Hyperchat is Router, Ownable2Step {
         _;
     }
 
-    modifier requireDeployed(uint32 _hyperlaneDomain) {
-        _checkInstance(_hyperlaneDomain);
-        _;
-    }
-
     /*//////////////////////////////////////////////////////////////////////////////////////////////////
                 CONSTRUCTOR
     //////////////////////////////////////////////////////////////////////////////////////////////////*/
 
     constructor(uint32 _hyperlaneDomainID, address _hyperlaneOutbox) payable {
+        // Transfer ownership of the contract to deployer
+        _transferOwnership(msg.sender);
+        
         // Set to Hyperlane Domain Identifier of Station chain
         HYPERLANE_DOMAIN_IDENTIFIER = _hyperlaneDomainID;
         // Set to Hyperlane Outbox on Station chain
@@ -83,16 +81,6 @@ abstract contract Hyperchat is Router, Ownable2Step {
     /*//////////////////////////////////////////////////////////////////////////////////////////////////
                 MANAGEMENT
     //////////////////////////////////////////////////////////////////////////////////////////////////*/
-    
-    // Function overload
-    function addInstance_(uint32 _domain, address _instance) public onlyOwner {
-        addInstance_(_domain, addressToBytes32(_instance));
-    }
-
-    // Inform contract of other Hyperchat instances on other chains
-    function addInstance_(uint32 _domain, bytes32 _instance) public onlyOwner {
-        _hyperchatInstance[_domain] = _instance;
-    }
 
     /*//////////////////////////////////////////////////////////////////////////////////////////////////
                 LIBRARY
@@ -139,17 +127,6 @@ abstract contract Hyperchat is Router, Ownable2Step {
         return messages;
     }
     */
-
-    /*//////////////////////////////////////////////////////////////////////////////////////////////////
-                SECURITY
-    //////////////////////////////////////////////////////////////////////////////////////////////////*/
-
-    // Confirm received message is to/from a valid Hyperchat node
-    function _checkInstance(uint32 _hyperlaneDomain) internal view {
-        if (_hyperchatInstance[_hyperlaneDomain] == bytes32(0)) {
-            revert InvalidInstance();
-        }
-    }
 
     /*//////////////////////////////////////////////////////////////////////////////////////////////////
                 INTERNAL FUNCTIONS
@@ -213,7 +190,7 @@ abstract contract Hyperchat is Router, Ownable2Step {
         uint256 _conversationID,
         uint32 _hyperlaneDomain,
         string memory _message
-    ) public requireDeployed(_hyperlaneDomain) requireValid(_conversationID) {
+    ) public requireValid(_conversationID) {
         sendMessage(_conversationID, _hyperlaneDomain, stringToBytes(_message));
     }
 
@@ -222,7 +199,7 @@ abstract contract Hyperchat is Router, Ownable2Step {
         uint256 _conversationID,
         uint32 _hyperlaneDomain,
         bytes memory _message
-    ) public requireDeployed(_hyperlaneDomain) requireValid(_conversationID) {
+    ) public requireValid(_conversationID) {
         // Convert sender address to bytes32 format
         bytes32 sender = addressToBytes32(msg.sender);
 
@@ -262,8 +239,6 @@ abstract contract Hyperchat is Router, Ownable2Step {
         bytes32 _sender,
         bytes memory _messageBody
     ) external {
-        // Block messages from non-deployed chains
-        _checkInstance(_origin);
         // Require _sender is a valid Hyperchat node
         if (_sender != _hyperchatInstance[_origin]) {
             revert InvalidInstance();
