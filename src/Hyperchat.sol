@@ -1,23 +1,23 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.17;
 
-import "hyperlane/Router.sol";
+//import "hyperlane/Router.sol";
 import "openzeppelin-contracts/access/Ownable2Step.sol";
 
 // Hyperchat is a contract that leverages the Hyperlane Messaging API to relay chat messages to users of any chain
-abstract contract Hyperchat is Router, Ownable2Step {
+abstract contract Hyperchat is /*Router,*/ Ownable2Step {
 
     /*//////////////////////////////////////////////////////////////////////////////////////////////////
                 EVENTS/ERRORS
     //////////////////////////////////////////////////////////////////////////////////////////////////*/
 
-    event ConversationCreated(uint256 indexed conversationID, uint32[] indexed chainIDs, bytes32[] indexed parties);
-    event ParticipantAdded(uint256 indexed conversationID, bytes32 indexed participant);
-    event ParticipantRemoved(uint256 indexed conversationID, bytes32 indexed participant);
-    event ChainAdded(uint256 indexed conversationID, bytes32 indexed chainID);
-    event ChainRemoved(uint256 indexed conversationID, bytes32 indexed chainID);
-    event MessageSent(uint32 indexed chainID, bytes indexed message, bytes32 indexed sender);
-    event MessageReceived(uint32 indexed chainID, bytes indexed message, uint256 indexed messageNum);
+    event ConversationCreated(bytes32 indexed conversationID, uint32[] indexed domainIDs, bytes32[] indexed parties);
+    event ParticipantAdded(bytes32 indexed conversationID, bytes32 indexed participant);
+    event ParticipantRemoved(bytes32 indexed conversationID, bytes32 indexed participant);
+    event ChainAdded(bytes32 indexed conversationID, bytes32 indexed domainID);
+    event ChainRemoved(bytes32 indexed conversationID, bytes32 indexed domainID);
+    event MessageSent(bytes32 indexed conversationID, bytes indexed message, bytes32 indexed sender);
+    event MessageReceived(bytes32 indexed conversationID, bytes indexed message, bytes32 indexed sender);
 
     error InvalidConversation();
     error InvalidParticipant();
@@ -43,7 +43,7 @@ abstract contract Hyperchat is Router, Ownable2Step {
     struct Conversation {
         uint256 messageCount;
         bytes32 conversationID;
-        uint32[] chainIDs;
+        uint32[] domainIDs;
         mapping(bytes32 => bool) parties;
     }
     // conversationID => Conversation data struct
@@ -161,23 +161,49 @@ abstract contract Hyperchat is Router, Ownable2Step {
     */
 
     /*//////////////////////////////////////////////////////////////////////////////////////////////////
-                INITIATE CONVERSATION LOGIC
+                PRIMARY CONVERSATION FUNCTIONS
     //////////////////////////////////////////////////////////////////////////////////////////////////*/
 
     // Initiate a conversation
-    function initiateConversation(uint32[] memory _chainIDs, bytes32[] memory _parties) public returns (uint256) {
-        // Generate conversation ID and initiate conversation by saving it
-        uint256 conversationID = conversationCount + 1;
+    function initiateConversation(
+        uint32[] memory _domainIDs,
+        bytes32[] memory _parties,
+        bytes memory _seed
+    ) public returns (bytes32 conversationID) {
+        //Increment conversationCount
+        conversationCount += 1;
+
+        // Calculate conversationID
+        // Extremely packed to prevent any chance of MEV abuse or collision
+        conversationID = bytes32(abi.encodePacked(
+            msg.sender,
+            address(this),
+            HYPERLANE_DOMAIN_IDENTIFIER,
+            HYPERLANE_OUTBOX,
+            blockhash(1),
+            block.number,
+            block.difficulty,
+            block.timestamp,
+            block.chainid,
+            block.coinbase,
+            conversationCount,
+            _seed
+        ));
+
+        // Initialize Conversation
         _conversations[conversationID].conversationID = conversationID;
-        
-        // Loop through all addresses in _parties and add them to conversation allowlist
+        // Process Hyperlane domain IDs
+        for (uint i; i < _domainIDs.length;) {
+            _conversations[conversationID].domainIDs.push(_domainIDs[i]);
+        }
+        // Process participant addresses
         for (uint i; i < _parties.length;) {
             _conversations[conversationID].parties[_parties[i]] = true;
         }
 
+        emit ConversationCreated(conversationID, _domainIDs, _parties);
 
-
-        emit ConversationCreated(conversationID, _chainIDs, _parties);
+        return conversationID;
     }
 
     /*//////////////////////////////////////////////////////////////////////////////////////////////////
