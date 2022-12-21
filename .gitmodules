@@ -4,3 +4,6 @@
 [submodule "lib/openzeppelin-contracts"]
 	path = lib/openzeppelin-contracts
 	url = https://github.com/openzeppelin/openzeppelin-contracts
+[submodule "lib/hyperlane-monorepo"]
+	path = lib/hyperlane-monorepo
+	url = https://github.com/hyperlane-xyz/hyperlane-monorepo
