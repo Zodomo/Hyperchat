@@ -11,7 +11,7 @@ abstract contract Hyperchat is /*Router,*/ Ownable2Step {
                 EVENTS/ERRORS
     //////////////////////////////////////////////////////////////////////////////////////////////////*/
 
-    event ConversationCreated(bytes32 indexed conversationID, uint32[] indexed domainIDs, bytes32[] indexed parties);
+    event ConversationCreated(bytes32 indexed conversationID, bytes32 indexed initiator);
     event ParticipantAdded(bytes32 indexed conversationID, bytes32 indexed participant);
     event ParticipantRemoved(bytes32 indexed conversationID, bytes32 indexed participant);
     event ChainAdded(bytes32 indexed conversationID, bytes32 indexed domainID);
@@ -22,6 +22,7 @@ abstract contract Hyperchat is /*Router,*/ Ownable2Step {
     error InvalidConversation();
     error InvalidParticipant();
     error InvalidInstance();
+    error NotAdmin();
 
     /*//////////////////////////////////////////////////////////////////////////////////////////////////
                 STORAGE
@@ -44,6 +45,7 @@ abstract contract Hyperchat is /*Router,*/ Ownable2Step {
         uint256 messageCount;
         bytes32 conversationID;
         uint32[] domainIDs;
+        mapping(bytes32 => bool) admins;
         mapping(bytes32 => bool) parties;
     }
     // conversationID => Conversation data struct
@@ -60,6 +62,13 @@ abstract contract Hyperchat is /*Router,*/ Ownable2Step {
         }
         if (!_conversations[_conversationID].parties[addressToBytes32(msg.sender)]) {
             revert InvalidParticipant();
+        }
+        _;
+    }
+
+    modifier onlyAdmin(bytes32 _conversationID) {
+        if (!_conversations[_conversationID].admins[addressToBytes32(msg.sender)]) {
+            revert NotAdmin();
         }
         _;
     }
@@ -192,6 +201,9 @@ abstract contract Hyperchat is /*Router,*/ Ownable2Step {
 
         // Initialize Conversation
         _conversations[conversationID].conversationID = conversationID;
+        // Set initializer as conversation admin
+        _conversations[conversationID].admins[addressToBytes32(msg.sender)] = true;
+        
         // Process Hyperlane domain IDs
         for (uint i; i < _domainIDs.length;) {
             _conversations[conversationID].domainIDs.push(_domainIDs[i]);
@@ -201,9 +213,19 @@ abstract contract Hyperchat is /*Router,*/ Ownable2Step {
             _conversations[conversationID].parties[_parties[i]] = true;
         }
 
-        emit ConversationCreated(conversationID, _domainIDs, _parties);
+        emit ConversationCreated(conversationID, addressToBytes32(msg.sender));
 
         return conversationID;
+    }
+
+    // Add an address as an admin
+    function addAdmin(bytes32 _conversationID, bytes32 _address) public onlyAdmin(_conversationID) {
+
+    }
+
+    // Add an address to a conversation
+    function addAddress(bytes32 _conversationID, bytes32 _address) public {
+
     }
 
     /*//////////////////////////////////////////////////////////////////////////////////////////////////
