@@ -5,7 +5,7 @@ import "./Hyperlane.sol";
 import "openzeppelin-contracts/access/Ownable2Step.sol";
 
 // Hyperchat is a contract that leverages the Hyperlane Messaging API to relay chat messages to users of any chain
-abstract contract Hyperchat is IMessageRecipient, Ownable2Step {
+contract Hyperchat is IMessageRecipient, Ownable2Step {
 
     /*//////////////////////////////////////////////////////////////////////////////////////////////////
                 EVENTS/ERRORS
