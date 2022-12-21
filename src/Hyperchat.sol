@@ -30,7 +30,6 @@ abstract contract Hyperchat is IMessageRecipient, Ownable2Step {
     // Hyperlane data structures
     uint32 private immutable HYPERLANE_DOMAIN_IDENTIFIER;
     address private immutable HYPERLANE_OUTBOX;
-    mapping(uint32 => bytes32) private _hyperchatInstance;
 
     struct Message {
         uint256 conversationID;
