@@ -5,7 +5,7 @@ pragma solidity ^0.8.17;
 import "openzeppelin-contracts/access/Ownable2Step.sol";
 
 // Hyperchat is a contract that leverages the Hyperlane Messaging API to relay chat messages to users of any chain
-abstract contract Hyperchat is Ownable2Step {
+abstract contract Hyperchat is /*Router,*/ Ownable2Step {
 
     /*//////////////////////////////////////////////////////////////////////////////////////////////////
                 EVENTS/ERRORS
@@ -20,8 +20,8 @@ abstract contract Hyperchat is Ownable2Step {
     event ParticipantRemoved(bytes32 indexed conversationID, bytes32 indexed participant);
     event ChainAdded(bytes32 indexed conversationID, uint32 indexed domainID);
     event ChainRemoved(bytes32 indexed conversationID, uint32 indexed domainID);
-    event MessageSent(bytes32 indexed conversationID, bytes indexed message, bytes32 indexed sender);
-    event MessageReceived(bytes32 indexed conversationID, bytes indexed message, bytes32 indexed sender);
+    event MessageSent(bytes32 indexed conversationID, bytes indexed message);
+    event MessageReceived(bytes32 indexed conversationID, bytes indexed message);
 
     error InvalidConversation();
     error InvalidParticipant();
@@ -94,6 +94,9 @@ abstract contract Hyperchat is Ownable2Step {
     }
 
     modifier onlyAdmin(bytes32 _conversationID) {
+        if (_conversations[_conversationID].conversationID == 0) {
+            revert InvalidConversation();
+        }
         if (!_conversations[_conversationID].isAdmin[addressToBytes32(msg.sender)]) {
             revert InvalidAdmin();
         }
@@ -300,63 +303,40 @@ abstract contract Hyperchat is Ownable2Step {
 
     // Vote for an address to become a conversation admin
     function addAdminApproval(bytes32 _conversationID, bytes32 _address) public onlyAdmin(_conversationID) {
-        // Retrieve admin count
-        uint256 adminCount = _conversations[_conversationID].admins.length;
-
-        // Make sure _address isn't already an admin
-        for (uint i; i < adminCount;) {
-            // Retrieve admin address at index i
-            bytes32 adminAddress = _conversations[_conversationID].admins[i];
-
-            // If _address is in array, revert
-            if (adminAddress == _address) {
-                revert InvalidAdmin();
-            }
-
-            // Loop shouldn't ever overflow
-            unchecked { ++i; }
+        // Revert if _address isnt a member
+        if (!_conversations[_conversationID].parties[_address]) {
+            revert InvalidParticipant();
         }
         
         // Convert msg.sender address
         bytes32 admin = addressToBytes32(msg.sender);
-        
-        // Set admin vote for admin rights approval
-        _conversations[_conversationID].adminApprovals[admin][_address] = true;
+
+        // Add admin vote for admin rights approval, revert if approval is already true
+        if (!_conversations[_conversationID].adminApprovals[admin][_address]) {
+            _conversations[_conversationID].adminApprovals[admin][_address] = true;
+        } else {
+            revert InvalidApprovals();
+        }
 
         emit AdminApprovalAdded(_conversationID, admin, _address);
     }
 
     // Vote for an address to lose its conversation admin rights
     function removeAdminApproval(bytes32 _conversationID, bytes32 _address) public onlyAdmin(_conversationID) {
-        // Retrieve admin count
-        uint256 adminCount = _conversations[_conversationID].admins.length;
-
-        // Make sure _address is already an admin
-        bool found;
-        for (uint i; i < adminCount;) {
-            // Retrieve admin address at index i
-            bytes32 adminAddress = _conversations[_conversationID].admins[i];
-
-            // If _address is in array, set found
-            if (adminAddress == _address) {
-                found = true;
-                break;
-            }
-
-            // Loop shouldn't ever overflow
-            unchecked { ++i; }
-        }
-
-        // If not found, _address isn't an admin so revert
-        if (!found) {
-            revert InvalidAdmin();
+        // Revert if _address isnt a member
+        if (!_conversations[_conversationID].parties[_address]) {
+            revert InvalidParticipant();
         }
         
         // Convert msg.sender address
         bytes32 admin = addressToBytes32(msg.sender);
         
-        // Remove admin vote for admin rights approval
-        _conversations[_conversationID].adminApprovals[admin][_address] = false;
+        // Remove admin vote for admin rights approval, revert if approval is already false
+        if (_conversations[_conversationID].adminApprovals[admin][_address]) {
+            _conversations[_conversationID].adminApprovals[admin][_address] = false;
+        } else {
+            revert InvalidApprovals();
+        }
 
         emit AdminApprovalRemoved(_conversationID, admin, _address);
     }
@@ -427,8 +407,8 @@ abstract contract Hyperchat is Ownable2Step {
                 approvals += 1;
             }
 
-            // If below 51% approval threshold, break loop to save gas
-            if (approvals <= adminCount / 2) {
+            // If above 51% approval threshold, break loop to save gas
+            if (approvals > adminCount / 2) {
                 break;
             }
 
@@ -522,80 +502,27 @@ abstract contract Hyperchat is Ownable2Step {
                 SEND MESSAGE LOGIC
     //////////////////////////////////////////////////////////////////////////////////////////////////*/
 
-    // Send message to conversation
-    // Message will be broadcast to all domainIDs added to the conversation
+    // Send message of any type to conversation
+    // Message will be broadcast to all domainIDs in conversation metadata
     function sendMessage(bytes32 _conversationID, bytes memory _message) public onlyMember(_conversationID) {
+        // Iterate sending via hyperlane to each domainID
         for (uint i; i < _conversations[_conversationID].domainIDs.length;) {
-            
-        }
-    }
+            // Retrieve domainID at index i
+            uint32 domainID = _conversations[_conversationID].domainIDs[i];
 
-    /*
-    // sendMessage overload
-    function sendMessage(
-        uint256 _conversationID,
-        uint32 _hyperlaneDomain,
-        string memory _message
-    ) public onlyMember(_conversationID) {
-        sendMessage(_conversationID, _hyperlaneDomain, stringToBytes(_message));
-    }
-    */
+            // Skip sending to the domainID for this chain as its logic was already processed locally
+            if (domainID == HYPERLANE_DOMAIN_IDENTIFIER) {
+                // Still append to _messages mapping though
+                _messages[_conversationID][_conversations[_conversationID].messageCount] = abi.decode(_message, (Message));
+                // Shouldn't overflow
+                unchecked { ++i; }
+                continue;
+            }
 
-    /*
-    // Send message via Hyperlane
-    function sendMessage(
-        uint256 _conversationID,
-        uint32 _hyperlaneDomain,
-        bytes memory _message
-    ) public onlyMember(_conversationID) {
-        // Convert sender address to bytes32 format
-        bytes32 sender = addressToBytes32(msg.sender);
-
-        // Package Message Envelope
-        Message memory envelope;
-        envelope.conversationID = _conversationID;
-        envelope.timestamp = block.timestamp;
-        envelope.sender = sender;
-        envelope.message = _message;
-        bytes memory Envelope = abi.encode(envelope);
-
-        // If recipient domain isn't current chain, send via Hyperlane
-        if (_hyperlaneDomain != HYPERLANE_DOMAIN_IDENTIFIER) {
-            // Send to Hyperlane Outbox
-            IOutbox(HYPERLANE_OUTBOX).dispatch(
-                _hyperlaneDomain,
-                _hyperchatInstance[_hyperlaneDomain],
-                Envelope
-            );
+            // TODO: Dispatch message via Hyperlane to Hyperchat instance on domainID
+            //_dispatch(domainID, _message);
         }
 
-        // Commit Envelope to current Hyperchat node
-        _processMessage(Envelope);
-
-        emit MessageSent(_hyperlaneDomain, Envelope);
+        emit MessageSent(_conversationID, _message);
     }
-    */
-
-    /*//////////////////////////////////////////////////////////////////////////////////////////////////
-                RECEIVE MESSAGE LOGIC
-    //////////////////////////////////////////////////////////////////////////////////////////////////*/
-
-    /*
-    // Receive logic is embedded in the below Hyperlane-compliant handle() function
-    function handle(
-        uint32 _origin,
-        bytes32 _sender,
-        bytes memory _messageBody
-    ) external {
-        // Require _sender is a valid Hyperchat node
-        if (_sender != _hyperchatInstance[_origin]) {
-            revert InvalidInstance();
-        }
-
-        // Process message
-        _processMessage(_messageBody);
-
-        emit MessageReceived(_origin, _messageBody);
-    }
-    */
 }
