@@ -49,7 +49,8 @@ abstract contract Hyperchat is /*Router,*/ Ownable2Step {
         AddParticipant,
         RemoveParticipant,
         AddHyperlaneDomain,
-        RemoveHyperlaneDomain
+        RemoveHyperlaneDomain,
+        NormalMessage
     }
 
     // Message data struct
@@ -623,4 +624,39 @@ abstract contract Hyperchat is /*Router,*/ Ownable2Step {
 
         emit MessageSent(_conversationID, _message);
     }
+    
+    // TODO: Uncomment function once Router.sol is inherited properly
+    /*
+    // Overriding the Hyperlane Router.sol's _handle() function is how receive logic is implemented
+    function _handle(
+        uint32 _origin,
+        bytes32 _sender,
+        bytes calldata _message
+    ) internal override {
+        // Decode message back into Message type
+        Message memory message = abi.decode(_message, (Message));
+        // Retrieve MessageType
+        MessageType msgType = message.msgType;
+
+        // TODO: Call appropriate processing function for MessageType
+        if (msgType == MessageType.InitiateConversation) {
+            _processInitiateConversation(_origin, message);
+        }
+        if (msgType == MessageType.AddAdminApproval || msgType == MessageType.RemoveAdminApproval) {
+
+        }
+        if (msgType == MessageType.AddAdmin || msgType == MessageType.RemoveAdmin) {
+            
+        }
+        if (msgType == MessageType.AddParticipant || msgType == MessageType.RemoveParticipant) {
+            
+        }
+        if (msgType == MessageType.AddAdmin || msgType == MessageType.RemoveAdmin) {
+            
+        }
+        if (msgType == MessageType.NormalMessage) {
+
+        }
+    }
+    */
 }
