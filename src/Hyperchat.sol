@@ -55,11 +55,11 @@ abstract contract Hyperchat is /*Router,*/ Ownable2Step {
     // Message data struct
     struct Message {
         uint256 timestamp;
-        bytes32 conversationID;
-        uint32 domainID;
-        bytes32 admin;
         bytes32 sender;
-        bytes message;
+        bytes32 conversationID;
+        bytes32[] participants; // Participant addresses to be utilized in management functions
+        uint32[] domainIDs; // Hyperlane domainIDs to add/remove
+        bytes message; // Chat message
         MessageType msgType;
         bool action; // Used for Add/Remove msgTypes, true = add, false = remove
     }
@@ -71,6 +71,7 @@ abstract contract Hyperchat is /*Router,*/ Ownable2Step {
         bytes32 conversationID;
         uint32[] domainIDs;
         bytes32[] admins;
+        bytes name;
         mapping(bytes32 => bool) isAdmin;
         mapping(bytes32 => mapping(bytes32 => bool)) adminApprovals;
         mapping(bytes32 => bool) parties;
@@ -239,14 +240,9 @@ abstract contract Hyperchat is /*Router,*/ Ownable2Step {
     function initiateConversation(
         uint32[] memory _domainIDs,
         bytes32[] memory _parties,
-        bytes memory _seed
+        bytes memory _seed,
+        bytes memory _name
     ) public returns (bytes32 conversationID) {
-        // Convert msg.sender address
-        bytes32 admin = addressToBytes32(msg.sender);
-
-        //Increment conversationCount
-        conversationCount += 1;
-
         // Calculate conversationID
         // Extremely packed to prevent any chance of MEV abuse or collision
         conversationID = bytes32(abi.encodePacked(
@@ -261,19 +257,31 @@ abstract contract Hyperchat is /*Router,*/ Ownable2Step {
             block.chainid,
             block.coinbase,
             conversationCount,
-            _seed
+            _seed,
+            _name
         ));
 
         if (_conversations[conversationID].conversationID == conversationID) {
             revert InvalidConversation();
         }
 
+        // Convert msg.sender address
+        bytes32 admin = addressToBytes32(msg.sender);
+
+        // Prep InitiateConversation Message to duplicate action on other instances
+        Message memory message;
+        message.timestamp = block.timestamp;
+        message.sender = admin;
+
         // Initialize Conversation
-        _conversations[conversationID].conversationID = conversationID;
+        _conversations[conversationID].conversationID = message.conversationID = conversationID;
+        conversationCount += 1;
+
         // Set initializer as conversation admin
-        _conversations[conversationID].admins.push(admin);
-        _conversations[conversationID].isAdmin[admin] = true;
-        _conversations[conversationID].adminApprovals[admin][admin] = true;
+        _conversations[conversationID].parties[admin] = true; // Add to conversation as participant
+        _conversations[conversationID].admins.push(admin); // Add to conversation admin array
+        _conversations[conversationID].isAdmin[admin] = true; // Set admin status mapping
+        _conversations[conversationID].adminApprovals[admin][admin] = true; // Set self-approval for admin status
 
         // Process current Hyperlane domainID
         _conversations[conversationID].domainIDs.push(HYPERLANE_DOMAIN_IDENTIFIER);
@@ -288,15 +296,31 @@ abstract contract Hyperchat is /*Router,*/ Ownable2Step {
             // Shouldn't overflow
             unchecked { ++i; }
         }
+        message.domainIDs = _domainIDs;
 
         // Process participant addresses
         for (uint i; i < _parties.length;) {
+            // Skip sender's address as that was already added
+            if (_parties[i] == admin) {
+                unchecked { ++i; }
+                continue;
+            }
             _conversations[conversationID].parties[_parties[i]] = true;
             // Shouldn't overflow
             unchecked { ++i; }
         }
+        message.participants = _parties;
+
+        // Set conversation name
+        _conversations[conversationID].name = message.message = _name;
+
+        // Set message type
+        message.msgType = MessageType.InitiateConversation;
+        message.action = true; // Doesn't do anything, just a style choice
 
         emit ConversationCreated(conversationID, addressToBytes32(msg.sender));
+
+        sendMessage(conversationID, abi.encode(message));
 
         return conversationID;
     }
@@ -499,7 +523,7 @@ abstract contract Hyperchat is /*Router,*/ Ownable2Step {
     }
 
     /*//////////////////////////////////////////////////////////////////////////////////////////////////
-                SEND MESSAGE LOGIC
+                SEND/RECEIVE MESSAGE LOGIC
     //////////////////////////////////////////////////////////////////////////////////////////////////*/
 
     // Send message of any type to conversation
@@ -514,6 +538,7 @@ abstract contract Hyperchat is /*Router,*/ Ownable2Step {
             if (domainID == HYPERLANE_DOMAIN_IDENTIFIER) {
                 // Still append to _messages mapping though
                 _messages[_conversationID][_conversations[_conversationID].messageCount] = abi.decode(_message, (Message));
+                _conversations[_conversationID].messageCount += 1;
                 // Shouldn't overflow
                 unchecked { ++i; }
                 continue;
