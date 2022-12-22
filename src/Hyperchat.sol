@@ -18,18 +18,18 @@ abstract contract Hyperchat is Ownable2Step {
     event AdminRemoved(bytes32 indexed conversationID, bytes32 indexed admin);
     event ParticipantAdded(bytes32 indexed conversationID, bytes32 indexed participant);
     event ParticipantRemoved(bytes32 indexed conversationID, bytes32 indexed participant);
-    event ChainAdded(bytes32 indexed conversationID, bytes32 indexed domainID);
-    event ChainRemoved(bytes32 indexed conversationID, bytes32 indexed domainID);
+    event ChainAdded(bytes32 indexed conversationID, uint32 indexed domainID);
+    event ChainRemoved(bytes32 indexed conversationID, uint32 indexed domainID);
     event MessageSent(bytes32 indexed conversationID, bytes indexed message, bytes32 indexed sender);
     event MessageReceived(bytes32 indexed conversationID, bytes indexed message, bytes32 indexed sender);
 
     error InvalidConversation();
     error InvalidParticipant();
+    error InvalidApprovals();
     error InvalidInstance();
+    error InvalidDomainID();
     error InvalidLength();
-    error NotAdmin();
-    error AdminApprovals();
-    error AlreadyApproved();
+    error InvalidAdmin();
 
     /*//////////////////////////////////////////////////////////////////////////////////////////////////
                 STORAGE
@@ -77,7 +77,7 @@ abstract contract Hyperchat is Ownable2Step {
 
     modifier onlyAdmin(bytes32 _conversationID) {
         if (!_conversations[_conversationID].isAdmin[addressToBytes32(msg.sender)]) {
-            revert NotAdmin();
+            revert InvalidAdmin();
         }
         _;
     }
@@ -153,7 +153,7 @@ abstract contract Hyperchat is Ownable2Step {
     // Removes admin at admins array _index
     function _removeFromAdminArray(bytes32 _conversationID, uint256 _index) internal {
         uint256 length = _conversations[_conversationID].admins.length;
-        if (_index > length) {
+        if (_index >= length) {
             revert InvalidLength();
         }
 
@@ -164,6 +164,22 @@ abstract contract Hyperchat is Ownable2Step {
         }
 
         _conversations[_conversationID].admins.pop();
+    }
+
+    // Removes domainID at domainIDs array _index
+    function _removeFromDomainIDArray(bytes32 _conversationID, uint256 _index) internal {
+        uint256 length = _conversations[_conversationID].domainIDs.length;
+        if (_index >= length) {
+            revert InvalidLength();
+        }
+
+        for (uint i = _index; i < length - 1;) {
+            _conversations[_conversationID].domainIDs[i] = _conversations[_conversationID].domainIDs[i + 1];
+            // Shouldn't overflow
+            unchecked { ++i; }
+        }
+
+        _conversations[_conversationID].domainIDs.pop();
     }
 
     /*
@@ -227,6 +243,10 @@ abstract contract Hyperchat is Ownable2Step {
             _seed
         ));
 
+        if (_conversations[conversationID].conversationID == conversationID) {
+            revert InvalidConversation();
+        }
+
         // Initialize Conversation
         _conversations[conversationID].conversationID = conversationID;
         // Set initializer as conversation admin
@@ -234,14 +254,17 @@ abstract contract Hyperchat is Ownable2Step {
         _conversations[conversationID].isAdmin[admin] = true;
         _conversations[conversationID].adminApprovals[admin][admin] = true;
 
-        
         // Process Hyperlane domain IDs
         for (uint i; i < _domainIDs.length;) {
             _conversations[conversationID].domainIDs.push(_domainIDs[i]);
+            // Shouldn't overflow
+            unchecked { ++i; }
         }
         // Process participant addresses
         for (uint i; i < _parties.length;) {
             _conversations[conversationID].parties[_parties[i]] = true;
+            // Shouldn't overflow
+            unchecked { ++i; }
         }
 
         emit ConversationCreated(conversationID, addressToBytes32(msg.sender));
@@ -251,6 +274,23 @@ abstract contract Hyperchat is Ownable2Step {
 
     // Vote for an address to become a conversation admin
     function adminAddApproval(bytes32 _conversationID, bytes32 _address) public onlyAdmin(_conversationID) {
+        // Retrieve admin count
+        uint256 adminCount = _conversations[_conversationID].admins.length;
+
+        // Make sure _address isn't already an admin
+        for (uint i; i < adminCount;) {
+            // Retrieve admin address at index i
+            bytes32 adminAddress = _conversations[_conversationID].admins[i];
+
+            // If _address is in array, revert
+            if (adminAddress == _address) {
+                revert InvalidAdmin();
+            }
+
+            // Loop shouldn't ever overflow
+            unchecked { ++i; }
+        }
+        
         // Convert msg.sender address
         bytes32 admin = addressToBytes32(msg.sender);
         
@@ -262,6 +302,30 @@ abstract contract Hyperchat is Ownable2Step {
 
     // Vote for an address to lose its conversation admin rights
     function adminRemoveApproval(bytes32 _conversationID, bytes32 _address) public onlyAdmin(_conversationID) {
+        // Retrieve admin count
+        uint256 adminCount = _conversations[_conversationID].admins.length;
+
+        // Make sure _address is already an admin
+        bool found;
+        for (uint i; i < adminCount;) {
+            // Retrieve admin address at index i
+            bytes32 adminAddress = _conversations[_conversationID].admins[i];
+
+            // If _address is in array, set found
+            if (adminAddress == _address) {
+                found = true;
+                break;
+            }
+
+            // Loop shouldn't ever overflow
+            unchecked { ++i; }
+        }
+
+        // If not found, _address isn't an admin so revert
+        if (!found) {
+            revert InvalidAdmin();
+        }
+        
         // Convert msg.sender address
         bytes32 admin = addressToBytes32(msg.sender);
         
@@ -273,6 +337,11 @@ abstract contract Hyperchat is Ownable2Step {
 
     // Give an approved address conversation admin rights
     function addAdmin(bytes32 _conversationID, bytes32 _address) public onlyAdmin(_conversationID) {
+        // Revert if _address is already an admin
+        if (_conversations[_conversationID].isAdmin[_address]) {
+            revert InvalidAdmin();
+        }
+        
         // Keep count of admin count and approvals
         uint256 adminCount = _conversations[_conversationID].admins.length;
 
@@ -303,17 +372,21 @@ abstract contract Hyperchat is Ownable2Step {
             _conversations[_conversationID].admins.push(_address);
             _conversations[_conversationID].isAdmin[_address] = true;
             _conversations[_conversationID].adminApprovals[_address][_address] = true;
-            adminCount += 1;
 
             emit AdminAdded(_conversationID, _address);
         } else {
-            revert AdminApprovals();
+            revert InvalidApprovals();
         }
     }
 
     // Remove an addresss conversation admin rights
     function removeAdmin(bytes32 _conversationID, bytes32 _address) public onlyAdmin(_conversationID) {
-        // Keep count of admin count and approvals
+        // Revert if _address isn't already an admin
+        if (!_conversations[_conversationID].isAdmin[_address]) {
+            revert InvalidAdmin();
+        }
+        
+        // Retrieve admin count
         uint256 adminCount = _conversations[_conversationID].admins.length;
 
         // Keep track of approval count for following for loop
@@ -326,6 +399,11 @@ abstract contract Hyperchat is Ownable2Step {
             // Count approval (if any)
             if (_conversations[_conversationID].adminApprovals[adminAddress][_address]) {
                 approvals += 1;
+            }
+
+            // If below 51% approval threshold, break loop to save gas
+            if (approvals <= adminCount / 2) {
+                break;
             }
 
             // Loop shouldn't ever overflow
@@ -345,22 +423,73 @@ abstract contract Hyperchat is Ownable2Step {
             // Remove admin data structures
             delete _conversations[_conversationID].isAdmin[_address];
             delete _conversations[_conversationID].adminApprovals[_address][_address];
-            adminCount -= 1;
 
             emit AdminRemoved(_conversationID, _address);
         } else {
-            revert AdminApprovals();
+            revert InvalidApprovals();
         }
     }
 
     // Add an address to a conversation
     function addAddress(bytes32 _conversationID, bytes32 _address) public onlyAdmin(_conversationID) {
-        _conversations[_conversationID].parties[_address] = true;
+        // Add if not present, else revert
+        if (!_conversations[_conversationID].parties[_address]) {
+            _conversations[_conversationID].parties[_address] = true;
+        } else {
+            revert InvalidParticipant();
+        }
+
+        emit ParticipantAdded(_conversationID, _address);
     }
 
     // Remove an address from a conversation
     function removeAddress(bytes32 _conversationID, bytes32 _address) public onlyAdmin(_conversationID) {
-        delete _conversations[_conversationID].parties[_address];
+        // Remove if present, else revert
+        if (_conversations[_conversationID].parties[_address]) {
+            delete _conversations[_conversationID].parties[_address];
+        } else {
+            revert InvalidParticipant();
+        }
+
+        emit ParticipantRemoved(_conversationID, _address);
+    }
+
+    // Add a domainID to a conversation
+    function addHyperlaneDomain(bytes32 _conversationID, uint32 _domainID) public onlyAdmin(_conversationID) {
+        // Check to make sure domain hasn't already been added
+        for (uint i; i < _conversations[_conversationID].domainIDs.length;) {
+            // If found, revert
+            if (_conversations[_conversationID].domainIDs[i] == _domainID) {
+                revert InvalidDomainID();
+            }
+        }
+
+        // Add _domainID if no revert occurred
+        _conversations[_conversationID].domainIDs.push(_domainID);
+
+        emit ChainAdded(_conversationID, _domainID);
+    }
+
+    // Remove a domainID from a conversation
+    function removeHyperlaneDomain(bytes32 _conversationID, uint32 _domainID) public onlyAdmin(_conversationID) {
+        // Look through array for _domainID
+        bool found;
+        for (uint i; i < _conversations[_conversationID].domainIDs.length;) {
+            // If found, process removal and end loop
+            if (_conversations[_conversationID].domainIDs[i] == _domainID) {
+                _removeFromDomainIDArray(_conversationID, i);
+                found = true;
+
+                break;
+            }
+        }
+
+        // Revert if not found
+        if (!found) {
+            revert InvalidDomainID();
+        }
+
+        emit ChainRemoved(_conversationID, _domainID);
     }
 
     /*//////////////////////////////////////////////////////////////////////////////////////////////////
