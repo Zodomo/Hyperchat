@@ -39,11 +39,29 @@ abstract contract Hyperchat is Ownable2Step {
     uint32 private immutable HYPERLANE_DOMAIN_IDENTIFIER;
     address private immutable HYPERLANE_OUTBOX;
 
+    // Message Types
+    enum MessageType {
+        InitiateConversation,
+        AddAdminApproval,
+        RemoveAdminApproval,
+        AddAdmin,
+        RemoveAdmin,
+        AddParticipant,
+        RemoveParticipant,
+        AddHyperlaneDomain,
+        RemoveHyperlaneDomain
+    }
+
+    // Message data struct
     struct Message {
-        uint256 conversationID;
         uint256 timestamp;
+        bytes32 conversationID;
+        uint32 domainID;
+        bytes32 admin;
         bytes32 sender;
         bytes message;
+        MessageType msgType;
+        bool action; // Used for Add/Remove msgTypes, true = add, false = remove
     }
     // conversationID => messageNum => Message data struct
     mapping(bytes32 => mapping(uint256 => Message)) private _messages;
@@ -65,7 +83,7 @@ abstract contract Hyperchat is Ownable2Step {
                 MODIFIERS
     //////////////////////////////////////////////////////////////////////////////////////////////////*/
 
-    modifier requireValid(bytes32 _conversationID) {
+    modifier onlyMember(bytes32 _conversationID) {
         if (_conversations[_conversationID].conversationID == 0) {
             revert InvalidConversation();
         }
@@ -254,12 +272,20 @@ abstract contract Hyperchat is Ownable2Step {
         _conversations[conversationID].isAdmin[admin] = true;
         _conversations[conversationID].adminApprovals[admin][admin] = true;
 
-        // Process Hyperlane domain IDs
+        // Process current Hyperlane domainID
+        _conversations[conversationID].domainIDs.push(HYPERLANE_DOMAIN_IDENTIFIER);
+        // Process user-supplied Hyperlane domainIDs
         for (uint i; i < _domainIDs.length;) {
+            // Skip the domainID for this chain if supplied as that was already added
+            if (_domainIDs[i] == HYPERLANE_DOMAIN_IDENTIFIER) {
+                unchecked { ++i; }
+                continue;
+            }
             _conversations[conversationID].domainIDs.push(_domainIDs[i]);
             // Shouldn't overflow
             unchecked { ++i; }
         }
+
         // Process participant addresses
         for (uint i; i < _parties.length;) {
             _conversations[conversationID].parties[_parties[i]] = true;
@@ -273,7 +299,7 @@ abstract contract Hyperchat is Ownable2Step {
     }
 
     // Vote for an address to become a conversation admin
-    function adminAddApproval(bytes32 _conversationID, bytes32 _address) public onlyAdmin(_conversationID) {
+    function addAdminApproval(bytes32 _conversationID, bytes32 _address) public onlyAdmin(_conversationID) {
         // Retrieve admin count
         uint256 adminCount = _conversations[_conversationID].admins.length;
 
@@ -301,7 +327,7 @@ abstract contract Hyperchat is Ownable2Step {
     }
 
     // Vote for an address to lose its conversation admin rights
-    function adminRemoveApproval(bytes32 _conversationID, bytes32 _address) public onlyAdmin(_conversationID) {
+    function removeAdminApproval(bytes32 _conversationID, bytes32 _address) public onlyAdmin(_conversationID) {
         // Retrieve admin count
         uint256 adminCount = _conversations[_conversationID].admins.length;
 
@@ -431,7 +457,7 @@ abstract contract Hyperchat is Ownable2Step {
     }
 
     // Add an address to a conversation
-    function addAddress(bytes32 _conversationID, bytes32 _address) public onlyAdmin(_conversationID) {
+    function addParticipant(bytes32 _conversationID, bytes32 _address) public onlyAdmin(_conversationID) {
         // Add if not present, else revert
         if (!_conversations[_conversationID].parties[_address]) {
             _conversations[_conversationID].parties[_address] = true;
@@ -443,7 +469,7 @@ abstract contract Hyperchat is Ownable2Step {
     }
 
     // Remove an address from a conversation
-    function removeAddress(bytes32 _conversationID, bytes32 _address) public onlyAdmin(_conversationID) {
+    function removeParticipant(bytes32 _conversationID, bytes32 _address) public onlyAdmin(_conversationID) {
         // Remove if present, else revert
         if (_conversations[_conversationID].parties[_address]) {
             delete _conversations[_conversationID].parties[_address];
@@ -496,22 +522,32 @@ abstract contract Hyperchat is Ownable2Step {
                 SEND MESSAGE LOGIC
     //////////////////////////////////////////////////////////////////////////////////////////////////*/
 
+    // Send message to conversation
+    // Message will be broadcast to all domainIDs added to the conversation
+    function sendMessage(bytes32 _conversationID, bytes memory _message) public onlyMember(_conversationID) {
+        for (uint i; i < _conversations[_conversationID].domainIDs.length;) {
+            
+        }
+    }
+
     /*
     // sendMessage overload
     function sendMessage(
         uint256 _conversationID,
         uint32 _hyperlaneDomain,
         string memory _message
-    ) public requireValid(_conversationID) {
+    ) public onlyMember(_conversationID) {
         sendMessage(_conversationID, _hyperlaneDomain, stringToBytes(_message));
     }
+    */
 
+    /*
     // Send message via Hyperlane
     function sendMessage(
         uint256 _conversationID,
         uint32 _hyperlaneDomain,
         bytes memory _message
-    ) public requireValid(_conversationID) {
+    ) public onlyMember(_conversationID) {
         // Convert sender address to bytes32 format
         bytes32 sender = addressToBytes32(msg.sender);
 
