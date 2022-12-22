@@ -142,13 +142,12 @@ abstract contract Hyperchat is /*Router,*/ Ownable2Step {
         return bytes32(uint256(uint160(_address)));
     }
 
-    /*
     // Retrieves messages in hopefully a more RPC-efficient manner
     function retrieveMessages(
-        uint256 _conversationID,
+        bytes32 _conversationID,
         uint256 initialMessage,
         uint256 finalMessage
-    ) public view returns (bytes[] memory) {
+    ) public view returns (Message[] memory) {
         // Ensure finalMessage index isn't below initialMessage index
         require(initialMessage <= finalMessage, "Hyperchat::retrieveMessages::INVALID_RANGE");
 
@@ -156,18 +155,17 @@ abstract contract Hyperchat is /*Router,*/ Ownable2Step {
         uint256 range = finalMessage - initialMessage + 1;
 
         // Create messages bytes[] array to store retrieved messages
-        bytes[] memory messages = new bytes[](range);
+        Message[] memory messages = new Message[](range);
         
         // Iterate across range and retrieve each message
         for (uint256 i; i + initialMessage <= finalMessage;) {
-            messages[i] = _messages[_conversationID][i].message;
+            messages[i] = _messages[_conversationID][i];
             // Cant overflow as we confirm range bounds before loop
             unchecked { ++i; }
         }
 
         return messages;
     }
-    */
 
     /*//////////////////////////////////////////////////////////////////////////////////////////////////
                 INTERNAL FUNCTIONS
@@ -204,34 +202,6 @@ abstract contract Hyperchat is /*Router,*/ Ownable2Step {
 
         _conversations[_conversationID].domainIDs.pop();
     }
-
-    /*
-    // Process Message data
-    function _processMessage(bytes memory _envelope) internal {
-        // Unpack Message data
-        Message memory envelope = abi.decode(_envelope, (Message));
-        uint256 conversationID = envelope.conversationID;
-        uint256 timestamp = envelope.timestamp;
-        bytes32 sender = envelope.sender;
-
-        // Require sender is a conversation participant
-        if (!_conversations[conversationID].parties[sender]) {
-            revert InvalidParticipant();
-        }
-
-        // Determine conversation message count
-        uint256 messageCount = _conversations[conversationID].messageCount;
-        
-        // Add message to end of conversation if message isn't older than the last committed message
-        if (_messages[conversationID][messageCount].timestamp <= timestamp) {
-            // Save message data to storage
-            _messages[conversationID][messageCount + 1] = envelope;
-            // Increment conversation message count
-            _conversations[conversationID].messageCount += 1;
-        }
-        // TODO: If older than the last message, reorder messages
-    }
-    */
 
     /*//////////////////////////////////////////////////////////////////////////////////////////////////
                 CONVERSATION MANAGEMENT FUNCTIONS
@@ -379,6 +349,9 @@ abstract contract Hyperchat is /*Router,*/ Ownable2Step {
 
         // Set conversation name
         _conversations[conversationID].name = _message.message;
+
+        // Save message in _messages storage
+        _messages[conversationID][0] = _message;
 
         emit ConversationCreated(conversationID, sender);
     }
