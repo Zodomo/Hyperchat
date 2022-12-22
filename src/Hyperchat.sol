@@ -173,6 +173,7 @@ abstract contract Hyperchat is /*Router,*/ Ownable2Step {
 
     // Removes admin at admins array _index
     function _removeFromAdminArray(bytes32 _conversationID, uint256 _index) internal {
+        // Revert if index out of bounds
         uint256 length = _conversations[_conversationID].admins.length;
         if (_index >= length) {
             revert InvalidLength();
@@ -189,6 +190,7 @@ abstract contract Hyperchat is /*Router,*/ Ownable2Step {
 
     // Removes domainID at domainIDs array _index
     function _removeFromDomainIDArray(bytes32 _conversationID, uint256 _index) internal {
+        // Revert if index out of bounds
         uint256 length = _conversations[_conversationID].domainIDs.length;
         if (_index >= length) {
             revert InvalidLength();
