@@ -64,7 +64,11 @@ forge install
 forge build
 ```
 
-`forge test` is not implemented yet. Testing must be done manually by deploying the Hyperchat contract to each target chain.
+`forge test` is not (fully) implemented yet. Testing must be done manually by deploying the Hyperchat contract to each target chain.
+
+`forge test` can be executed however, as there are some tests written thus far.
+
+THERE ARE MORE TESTS TO COME! THIS SMART CONTRACT IS NOT EVEN CLOSE TO BEING FULLY TESTED!
 
 Once deployed across all target chains (supportable by Hyperlane), all instances must be made aware of each other by adding them to Hyperlane's logic via Router.sol function calls.
 
