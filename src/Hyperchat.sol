@@ -343,7 +343,11 @@ abstract contract Hyperchat is /*Router,*/ Ownable2Step {
         message.participants = _participants;
 
         // Set conversation name
-        _conversations[conversationID].name = message.message = bytes.concat("Hyperlane: Initiated ", _name, "!");
+        if (_name.length > 0) {
+            _conversations[conversationID].name = message.message = bytes.concat("Hyperlane: ", admin, " initiated ", _name, "!");
+        } else {
+            _conversations[conversationID].name = message.message = bytes.concat("Hyperlane: ", admin, " initiated ", conversationID, "!");
+        }
 
         // Set message type
         message.msgType = MessageType.InitiateConversation;
