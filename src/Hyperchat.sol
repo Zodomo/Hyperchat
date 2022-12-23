@@ -71,7 +71,7 @@ abstract contract Hyperchat is /*Router,*/ Ownable2Step {
         bytes name;
         mapping(bytes32 => bool) isAdmin;
         mapping(bytes32 => mapping(bytes32 => bool)) adminApprovals;
-        mapping(bytes32 => bool) parties;
+        mapping(bytes32 => bool) allowlist;
     }
     // conversationID => Conversation data struct
     mapping(bytes32 => Conversation) private _conversations;
@@ -85,7 +85,7 @@ abstract contract Hyperchat is /*Router,*/ Ownable2Step {
         if (_conversations[_conversationID].conversationID == 0) {
             revert InvalidConversation();
         }
-        if (!_conversations[_conversationID].parties[addressToBytes32(msg.sender)]) {
+        if (!_conversations[_conversationID].allowlist[addressToBytes32(msg.sender)]) {
             revert InvalidParticipant();
         }
         _;
@@ -203,22 +203,68 @@ abstract contract Hyperchat is /*Router,*/ Ownable2Step {
         bytes32 conversationID = _message.conversationID;
         // Retrieve sender
         bytes32 sender = _message.sender;
+        // Retrieve admin candidate address
+        bytes32 candidate = _message.participants[0];
         // Retrieve MessageType
         MessageType msgType = _message.msgType;
 
+        // Process message logic based off MessageType
         if (msgType == MessageType.InitiateConversation) {
+            // Process internal InitiateConversation logic (too much to implement here)
             _processInitiateConversation(_message);
         }
-        else if (msgType == MessageType.AddAdminApproval || msgType == MessageType.RemoveAdminApproval) {
-            _processAdminApprovalMessage(_message);
+        else if (msgType == MessageType.AddAdminApproval) {
+            // Set admin approval
+            _conversations[conversationID].adminApprovals[sender][candidate] = true;
+
+            emit AdminApprovalAdded(conversationID, sender, candidate);
         }
-        else if (msgType == MessageType.AddAdmin || msgType == MessageType.RemoveAdmin) {
-            _processAdminMessage(_message);
+        else if (msgType == MessageType.RemoveAdminApproval) {
+            // Remove admin approval
+            delete _conversations[conversationID].adminApprovals[sender][candidate];
+
+            emit AdminApprovalRemoved(conversationID, sender, candidate);
         }
-        else if (msgType == MessageType.AddParticipant || msgType == MessageType.RemoveParticipant) {
-            _processParticipantMessage(_message);
+        else if (msgType == MessageType.AddAdmin) {
+            // Populate all admin-related fields and give self-approval
+            _conversations[conversationID].admins.push(candidate);
+            _conversations[conversationID].isAdmin[candidate] = true;
+            _conversations[conversationID].adminApprovals[candidate][candidate] = true;
+
+            emit AdminAdded(conversationID, sender, candidate);
+        }
+        else if (msgType == MessageType.RemoveAdmin) {
+            // Retrieve admin count
+            uint256 adminCount = _conversations[conversationID].admins.length;
+            // Search through admins array for address and remove it
+            for (uint i; i < adminCount;) {
+                if (_conversations[conversationID].admins[i] == candidate) {
+                    // Internal admin array removal logic
+                    _removeFromAdminArray(conversationID, i);
+                    break;
+                }
+            }
+
+            // Remove admin data structures
+            delete _conversations[conversationID].isAdmin[candidate];
+            delete _conversations[conversationID].adminApprovals[candidate][candidate];
+
+            emit AdminRemoved(conversationID, sender, candidate);
+        }
+        else if (msgType == MessageType.AddParticipant) {
+            // Add to conversation allowed allowlist
+            _conversations[conversationID].allowlist[candidate] = true;
+
+            emit ParticipantAdded(conversationID, sender, candidate);
+        }
+        else if (msgType == MessageType.RemoveParticipant) {
+            // Remove from conversation allowed allowlist
+            delete _conversations[conversationID].allowlist[candidate];
+
+            emit ParticipantRemoved(conversationID, sender, candidate);
         }
         else if (msgType == MessageType.GeneralMessage) {
+            // No logic for general messages beyond being stored in _handle()'s logic
             emit GeneralMessage(conversationID, sender, abi.encode(_message));
         }
         else {
@@ -237,7 +283,7 @@ abstract contract Hyperchat is /*Router,*/ Ownable2Step {
     // Initiate a conversation
     function initiateConversation(
         uint32[] memory _domainIDs,
-        bytes32[] memory _parties,
+        bytes32[] memory _participants,
         bytes memory _seed,
         bytes memory _name
     ) public returns (bytes32 conversationID) {
@@ -298,20 +344,20 @@ abstract contract Hyperchat is /*Router,*/ Ownable2Step {
 
         // Process participant addresses
         offset = 0;
-        _conversations[conversationID].parties[admin] = true;
+        _conversations[conversationID].allowlist[admin] = true;
         message.participants[0] = admin;
-        for (uint i = 1; i <= _parties.length;) {
+        for (uint i = 1; i <= _participants.length;) {
             // Skip sender's address as that was already added
-            if (_parties[i - 1] == admin) {
+            if (_participants[i - 1] == admin) {
                 unchecked { ++i; ++offset; }
                 continue;
             }
-            _conversations[conversationID].parties[_parties[i - 1]] = true;
-            message.participants[i - offset] = _parties[i - 1];
+            _conversations[conversationID].allowlist[_participants[i - 1]] = true;
+            message.participants[i - offset] = _participants[i - 1];
             // Shouldn't overflow
             unchecked { ++i; }
         }
-        message.participants = _parties;
+        message.participants = _participants;
 
         // Set conversation name
         _conversations[conversationID].name = message.message = bytes.concat("Hyperlane: Initiated ", _name, "!");
@@ -356,7 +402,7 @@ abstract contract Hyperchat is /*Router,*/ Ownable2Step {
 
         // Process participant addresses
         for (uint i; i < _message.participants.length;) {
-            _conversations[conversationID].parties[_message.participants[i]] = true;
+            _conversations[conversationID].allowlist[_message.participants[i]] = true;
             // Shouldn't overflow
             unchecked { ++i; }
         }
@@ -379,7 +425,7 @@ abstract contract Hyperchat is /*Router,*/ Ownable2Step {
         bytes memory _message
     ) public onlyAdmin(_conversationID) {
         // Revert if _address isnt a member
-        if (!_conversations[_conversationID].parties[_address]) {
+        if (!_conversations[_conversationID].allowlist[_address]) {
             revert InvalidParticipant();
         }
         
@@ -420,7 +466,7 @@ abstract contract Hyperchat is /*Router,*/ Ownable2Step {
         bytes memory _message
     ) public onlyAdmin(_conversationID) {
         // Revert if _address isnt a member
-        if (!_conversations[_conversationID].parties[_address]) {
+        if (!_conversations[_conversationID].allowlist[_address]) {
             revert InvalidParticipant();
         }
         
@@ -453,31 +499,6 @@ abstract contract Hyperchat is /*Router,*/ Ownable2Step {
         emit AdminApprovalRemoved(_conversationID, admin, _address);
     }
 
-    // Internal Add/RemoveAdminApproval Message type processing logic
-    function _processAdminApprovalMessage(Message memory _message) internal {
-        // Retrieve conversationID
-        bytes32 conversationID = _message.conversationID;
-        // Retrieve sender address
-        bytes32 admin = _message.sender;
-        // Retrieve admin candidate address
-        bytes32 candidate = _message.participants[0];
-
-        // Process Add or RemoveAdminApproval request, revert if neither type
-        if (_message.msgType == MessageType.AddAdminApproval) {
-            _conversations[conversationID].adminApprovals[admin][candidate] = true;
-
-            emit AdminApprovalAdded(conversationID, admin, candidate);
-        } 
-        else if (_message.msgType == MessageType.RemoveAdminApproval) {
-            delete _conversations[conversationID].adminApprovals[admin][candidate];
-
-            emit AdminApprovalRemoved(conversationID, admin, candidate);
-        }
-        else {
-            revert InvalidType();
-        }
-    }
-
     /*//////////////////////////////////////////////////////////////////////////////
                 ADMIN ADDITIONS/REMOVALS
     //////////////////////////////////////////////////////////////////////////////*/
@@ -489,7 +510,7 @@ abstract contract Hyperchat is /*Router,*/ Ownable2Step {
         bytes memory _message
     ) public onlyAdmin(_conversationID) {
         // Revert if _address isnt a member
-        if (!_conversations[_conversationID].parties[_address]) {
+        if (!_conversations[_conversationID].allowlist[_address]) {
             revert InvalidParticipant();
         }
         // Revert if _address is already an admin
@@ -559,7 +580,7 @@ abstract contract Hyperchat is /*Router,*/ Ownable2Step {
         bytes memory _message
     ) public onlyAdmin(_conversationID) {
         // Revert if _address isnt a member
-        if (!_conversations[_conversationID].parties[_address]) {
+        if (!_conversations[_conversationID].allowlist[_address]) {
             revert InvalidParticipant();
         }
         // Revert if _address isn't already an admin
@@ -629,45 +650,6 @@ abstract contract Hyperchat is /*Router,*/ Ownable2Step {
         sendMessage(_conversationID, abi.encode(message));
     }
 
-    // Internal Add/RemoveAdmin Message type processing logic
-    function _processAdminMessage(Message memory _message) internal {
-        // Retrieve conversationID
-        bytes32 conversationID = _message.conversationID;
-        // Retrieve sender address
-        bytes32 admin = _message.sender;
-        // Retrieve sender address
-        bytes32 candidate = _message.participants[0];
-
-        // Process Add or RemoveAdmin request, revert if neither type
-        if (_message.msgType == MessageType.AddAdmin) {
-            _conversations[conversationID].admins.push(candidate);
-            _conversations[conversationID].isAdmin[candidate] = true;
-            _conversations[conversationID].adminApprovals[candidate][candidate] = true;
-
-            emit AdminAdded(conversationID, admin, candidate);
-        } 
-        else if (_message.msgType == MessageType.RemoveAdmin) {
-            // Retrieve admin count
-            uint256 adminCount = _conversations[conversationID].admins.length;
-            // Search through admins array for address and remove it
-            for (uint i; i < adminCount;) {
-                if (_conversations[conversationID].admins[i] == candidate) {
-                    _removeFromAdminArray(conversationID, i);
-                    break;
-                }
-            }
-
-            // Remove admin data structures
-            delete _conversations[conversationID].isAdmin[candidate];
-            delete _conversations[conversationID].adminApprovals[candidate][candidate];
-
-            emit AdminRemoved(conversationID, admin, candidate);
-        }
-        else {
-            revert InvalidType();
-        }
-    }
-
     /*//////////////////////////////////////////////////////////////////////////////
                 PARTICIPANT ADDITIONS/REMOVALS
     //////////////////////////////////////////////////////////////////////////////*/
@@ -679,8 +661,8 @@ abstract contract Hyperchat is /*Router,*/ Ownable2Step {
         bytes memory _message
     ) public onlyAdmin(_conversationID) {
         // Add if not present, else revert
-        if (!_conversations[_conversationID].parties[_address]) {
-            _conversations[_conversationID].parties[_address] = true;
+        if (!_conversations[_conversationID].allowlist[_address]) {
+            _conversations[_conversationID].allowlist[_address] = true;
         } else {
             revert InvalidParticipant();
         }
@@ -714,8 +696,8 @@ abstract contract Hyperchat is /*Router,*/ Ownable2Step {
         bytes memory _message
     ) public onlyAdmin(_conversationID) {
         // Remove if present, else revert
-        if (_conversations[_conversationID].parties[_address]) {
-            delete _conversations[_conversationID].parties[_address];
+        if (_conversations[_conversationID].allowlist[_address]) {
+            delete _conversations[_conversationID].allowlist[_address];
         } else {
             revert InvalidParticipant();
         }
@@ -740,31 +722,6 @@ abstract contract Hyperchat is /*Router,*/ Ownable2Step {
         sendMessage(_conversationID, abi.encode(message));
 
         emit ParticipantRemoved(_conversationID, admin, _address);
-    }
-
-    // Internal Add/RemoveParticipant Message type processing logic
-    function _processParticipantMessage(Message memory _message) internal {
-        // Retrieve conversationID
-        bytes32 conversationID = _message.conversationID;
-        // Retrieve sender address
-        bytes32 admin = _message.sender;
-        // Retrieve admin candidate address
-        bytes32 candidate = _message.participants[0];
-
-        // Process Add/RemoveParticipant request, revert if neither type
-        if (_message.msgType == MessageType.AddParticipant) {
-            _conversations[conversationID].parties[candidate] = true;
-
-            emit ParticipantAdded(conversationID, admin, candidate);
-        } 
-        else if (_message.msgType == MessageType.RemoveAdminApproval) {
-            delete _conversations[conversationID].parties[candidate];
-
-            emit ParticipantRemoved(conversationID, admin, candidate);
-        }
-        else {
-            revert InvalidType();
-        }
     }
 
     /*//////////////////////////////////////////////////////////////////////////////
