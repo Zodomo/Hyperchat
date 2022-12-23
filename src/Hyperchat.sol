@@ -615,6 +615,39 @@ abstract contract Hyperchat is /*Router,*/ Ownable2Step {
         sendMessage(_conversationID, abi.encode(message));
     }
 
+    // Internal Add/RemoveAdmin Message type processing logic
+    function _processAdminMessage(Message memory _message) internal {
+        // Retrieve conversationID
+        bytes32 conversationID = _message.conversationID;
+        // Retrieve sender address
+        bytes32 admin = _message.participants[0];
+
+        // Process Add or RemoveAdmin request, revert if neither type
+        if (_message.msgType == MessageType.AddAdmin) {
+            _conversations[conversationID].admins.push(admin);
+            _conversations[conversationID].isAdmin[admin] = true;
+            _conversations[conversationID].adminApprovals[admin][admin] = true;
+        } 
+        else if (_message.msgType == MessageType.RemoveAdmin) {
+            // Retrieve admin count
+            uint256 adminCount = _conversations[conversationID].admins.length;
+            // Search through admins array for address and remove it
+            for (uint i; i < adminCount;) {
+                if (_conversations[conversationID].admins[i] == admin) {
+                    _removeFromAdminArray(conversationID, i);
+                    break;
+                }
+            }
+
+            // Remove admin data structures
+            delete _conversations[conversationID].isAdmin[admin];
+            delete _conversations[conversationID].adminApprovals[admin][admin];
+        }
+        else {
+            revert InvalidType();
+        }
+    }
+
     /*//////////////////////////////////////////////////////////////////////////////
                 PARTICIPANT ADDITIONS/REMOVALS
     //////////////////////////////////////////////////////////////////////////////*/
