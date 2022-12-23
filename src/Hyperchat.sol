@@ -469,15 +469,25 @@ abstract contract Hyperchat is /*Router,*/ Ownable2Step {
     //////////////////////////////////////////////////////////////////////////////*/
 
     // Give an approved address conversation admin rights
-    function addAdmin(bytes32 _conversationID, bytes32 _address) public onlyAdmin(_conversationID) {
+    function addAdmin(
+        bytes32 _conversationID,
+        bytes32 _address,
+        bytes memory _message
+    ) public onlyAdmin(_conversationID) {
+        // Revert if _address isnt a member
+        if (!_conversations[_conversationID].parties[_address]) {
+            revert InvalidParticipant();
+        }
         // Revert if _address is already an admin
         if (_conversations[_conversationID].isAdmin[_address]) {
             revert InvalidAdmin();
         }
-        
-        // Keep count of admin count and approvals
-        uint256 adminCount = _conversations[_conversationID].admins.length;
 
+        // Convert msg.sender address
+        bytes32 admin = addressToBytes32(msg.sender);
+        
+        // Retrieve admin count
+        uint256 adminCount = _conversations[_conversationID].admins.length;
         // Keep track of approval count for following for loop
         uint256 approvals;
         // Check each admin's approval status for _address
@@ -506,22 +516,48 @@ abstract contract Hyperchat is /*Router,*/ Ownable2Step {
             _conversations[_conversationID].isAdmin[_address] = true;
             _conversations[_conversationID].adminApprovals[_address][_address] = true;
 
-            emit AdminAdded(_conversationID, addressToBytes32(msg.sender), _address);
+            emit AdminAdded(_conversationID, admin, _address);
         } else {
             revert InvalidApprovals();
         }
+
+        // Prepare AddAdminApproval Message
+        Message memory message;
+        message.timestamp = block.timestamp;
+        message.sender = admin;
+        message.conversationID = _conversationID;
+        message.participants[0] = _address;
+        if (_message.length > 0) {
+            message.message = _message;
+        }
+        else {
+            message.message = bytes.concat("Hyperchat: ", admin, " added ", _address, "to conversation as admin!");
+        }
+        message.msgType = MessageType.AddAdmin;
+
+        sendMessage(_conversationID, abi.encode(message));
     }
 
     // Remove an addresss conversation admin rights
-    function removeAdmin(bytes32 _conversationID, bytes32 _address) public onlyAdmin(_conversationID) {
+    function removeAdmin(
+        bytes32 _conversationID,
+        bytes32 _address,
+        bytes memory _message
+    ) public onlyAdmin(_conversationID) {
+        // Revert if _address isnt a member
+        if (!_conversations[_conversationID].parties[_address]) {
+            revert InvalidParticipant();
+        }
         // Revert if _address isn't already an admin
         if (!_conversations[_conversationID].isAdmin[_address]) {
             revert InvalidAdmin();
         }
+
+        // Convert msg.sender address
+        bytes32 admin = addressToBytes32(msg.sender);
         
         // Retrieve admin count
         uint256 adminCount = _conversations[_conversationID].admins.length;
-
         // Keep track of approval count for following for loop
         uint256 approvals;
         // Check each admin's approval status for _address
@@ -561,6 +597,22 @@ abstract contract Hyperchat is /*Router,*/ Ownable2Step {
         } else {
             revert InvalidApprovals();
         }
+
+        // Prepare AddAdminApproval Message
+        Message memory message;
+        message.timestamp = block.timestamp;
+        message.sender = admin;
+        message.conversationID = _conversationID;
+        message.participants[0] = _address;
+        if (_message.length > 0) {
+            message.message = _message;
+        }
+        else {
+            message.message = bytes.concat("Hyperchat: ", admin, " removed ", _address, "from conversation as admin!");
+        }
+        message.msgType = MessageType.RemoveAdmin;
+
+        sendMessage(_conversationID, abi.encode(message));
     }
 
     /*//////////////////////////////////////////////////////////////////////////////
