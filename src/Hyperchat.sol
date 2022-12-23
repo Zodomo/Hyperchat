@@ -152,6 +152,15 @@ contract Hyperchat /*is Router*/ {
         return messages;
     }
 
+    // Retrieves conversation data
+    function retrieveConversation(bytes32 _conversationID) public view returns (uint256, bytes32, bytes memory) {
+        uint256 messageCount = _conversations[_conversationID].messageCount;
+        bytes32 conversationID = _conversations[_conversationID].conversationID;
+        bytes memory name = _conversations[_conversationID].name;
+        
+        return (messageCount, conversationID, name);
+    }
+
     /*//////////////////////////////////////////////////////////////////////////////////////////////////
                 INTERNAL FUNCTIONS
     //////////////////////////////////////////////////////////////////////////////////////////////////*/
