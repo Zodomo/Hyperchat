@@ -18,8 +18,6 @@ abstract contract Hyperchat is /*Router,*/ Ownable2Step {
     event AdminRemoved(bytes32 indexed conversationID, bytes32 indexed admin, bytes32 indexed candidate);
     event ParticipantAdded(bytes32 indexed conversationID, bytes32 indexed admin, bytes32 indexed participant);
     event ParticipantRemoved(bytes32 indexed conversationID, bytes32 indexed admin, bytes32 indexed participant);
-    event ChainAdded(bytes32 indexed conversationID, bytes32 indexed admin, uint32 indexed domainID);
-    event ChainRemoved(bytes32 indexed conversationID, bytes32 indexed admin, uint32 indexed domainID);
     event GeneralMessage(bytes32 indexed conversationID, bytes32 indexed sender, bytes indexed message);
     event MessageSent(bytes32 indexed conversationID, bytes32 indexed sender, bytes indexed message);
     event MessageReceived(bytes32 indexed conversationID, bytes32 indexed sender, bytes indexed message);
@@ -27,8 +25,6 @@ abstract contract Hyperchat is /*Router,*/ Ownable2Step {
     error InvalidConversation();
     error InvalidParticipant();
     error InvalidApprovals();
-    error InvalidInstance();
-    error InvalidDomainID();
     error InvalidMessage();
     error InvalidLength();
     error InvalidAdmin();
@@ -51,8 +47,6 @@ abstract contract Hyperchat is /*Router,*/ Ownable2Step {
         RemoveAdmin,
         AddParticipant,
         RemoveParticipant,
-        AddHyperlaneDomain,
-        RemoveHyperlaneDomain,
         GeneralMessage
     }
 
@@ -219,16 +213,13 @@ abstract contract Hyperchat is /*Router,*/ Ownable2Step {
             _processAdminApprovalMessage(_message);
         }
         else if (msgType == MessageType.AddAdmin || msgType == MessageType.RemoveAdmin) {
-            
+            _processAdminMessage(_message);
         }
         else if (msgType == MessageType.AddParticipant || msgType == MessageType.RemoveParticipant) {
             _processParticipantMessage(_message);
         }
-        else if (msgType == MessageType.AddHyperlaneDomain || msgType == MessageType.RemoveHyperlaneDomain) {
-            
-        }
         else if (msgType == MessageType.GeneralMessage) {
-            
+            emit GeneralMessage(conversationID, sender, abi.encode(_message));
         }
         else {
             revert InvalidType();
@@ -643,28 +634,34 @@ abstract contract Hyperchat is /*Router,*/ Ownable2Step {
         // Retrieve conversationID
         bytes32 conversationID = _message.conversationID;
         // Retrieve sender address
-        bytes32 admin = _message.participants[0];
+        bytes32 admin = _message.sender;
+        // Retrieve sender address
+        bytes32 candidate = _message.participants[0];
 
         // Process Add or RemoveAdmin request, revert if neither type
         if (_message.msgType == MessageType.AddAdmin) {
-            _conversations[conversationID].admins.push(admin);
-            _conversations[conversationID].isAdmin[admin] = true;
-            _conversations[conversationID].adminApprovals[admin][admin] = true;
+            _conversations[conversationID].admins.push(candidate);
+            _conversations[conversationID].isAdmin[candidate] = true;
+            _conversations[conversationID].adminApprovals[candidate][candidate] = true;
+
+            emit AdminAdded(conversationID, admin, candidate);
         } 
         else if (_message.msgType == MessageType.RemoveAdmin) {
             // Retrieve admin count
             uint256 adminCount = _conversations[conversationID].admins.length;
             // Search through admins array for address and remove it
             for (uint i; i < adminCount;) {
-                if (_conversations[conversationID].admins[i] == admin) {
+                if (_conversations[conversationID].admins[i] == candidate) {
                     _removeFromAdminArray(conversationID, i);
                     break;
                 }
             }
 
             // Remove admin data structures
-            delete _conversations[conversationID].isAdmin[admin];
-            delete _conversations[conversationID].adminApprovals[admin][admin];
+            delete _conversations[conversationID].isAdmin[candidate];
+            delete _conversations[conversationID].adminApprovals[candidate][candidate];
+
+            emit AdminRemoved(conversationID, admin, candidate);
         }
         else {
             revert InvalidType();
@@ -771,48 +768,6 @@ abstract contract Hyperchat is /*Router,*/ Ownable2Step {
     }
 
     /*//////////////////////////////////////////////////////////////////////////////
-                HYPERLANE DOMAIN ADDITIONS/REMOVALS
-    //////////////////////////////////////////////////////////////////////////////*/
-
-    // Add a domainID to a conversation
-    function addHyperlaneDomain(bytes32 _conversationID, uint32 _domainID) public onlyAdmin(_conversationID) {
-        // Check to make sure domain hasn't already been added
-        for (uint i; i < _conversations[_conversationID].domainIDs.length;) {
-            // If found, revert
-            if (_conversations[_conversationID].domainIDs[i] == _domainID) {
-                revert InvalidDomainID();
-            }
-        }
-
-        // Add _domainID if no revert occurred
-        _conversations[_conversationID].domainIDs.push(_domainID);
-
-        emit ChainAdded(_conversationID, addressToBytes32(msg.sender), _domainID);
-    }
-
-    // Remove a domainID from a conversation
-    function removeHyperlaneDomain(bytes32 _conversationID, uint32 _domainID) public onlyAdmin(_conversationID) {
-        // Look through array for _domainID
-        bool found;
-        for (uint i; i < _conversations[_conversationID].domainIDs.length;) {
-            // If found, process removal and end loop
-            if (_conversations[_conversationID].domainIDs[i] == _domainID) {
-                _removeFromDomainIDArray(_conversationID, i);
-                found = true;
-
-                break;
-            }
-        }
-
-        // Revert if not found
-        if (!found) {
-            revert InvalidDomainID();
-        }
-
-        emit ChainRemoved(_conversationID, addressToBytes32(msg.sender), _domainID);
-    }
-
-    /*//////////////////////////////////////////////////////////////////////////////
                 GENERAL MESSAGES
     //////////////////////////////////////////////////////////////////////////////*/
 
@@ -885,8 +840,6 @@ abstract contract Hyperchat is /*Router,*/ Ownable2Step {
         bytes32 conversationID = message.conversationID;
         // Retrieve sender
         bytes32 sender = message.sender;
-        // Retrieve MessageType
-        MessageType msgType = message.msgType;
 
         emit MessageReceived(conversationID, sender, _message)
 
