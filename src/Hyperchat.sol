@@ -741,7 +741,7 @@ abstract contract Hyperchat /*is Router*/ {
 
     // Send message of any type to conversation
     // Message will be broadcast to all domainIDs in conversation metadata
-    function sendMessage(bytes32 _conversationID, bytes memory _message) public onlyMember(_conversationID) {
+    function sendMessage(bytes32 _conversationID, bytes memory _message) internal onlyMember(_conversationID) {
         // Iterate sending via hyperlane to each domainID
         for (uint i; i < _conversations[_conversationID].domainIDs.length;) {
             // Retrieve domainID at index i
