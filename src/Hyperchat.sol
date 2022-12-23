@@ -4,7 +4,7 @@ pragma solidity ^0.8.17;
 //import "hyperlane/Router.sol";
 
 // Hyperchat is a contract that leverages the Hyperlane Messaging API to relay chat messages to users of any chain
-abstract contract Hyperchat /*is Router*/ {
+contract Hyperchat /*is Router*/ {
 
     /*//////////////////////////////////////////////////////////////////////////////////////////////////
                 EVENTS/ERRORS
@@ -35,7 +35,6 @@ abstract contract Hyperchat /*is Router*/ {
 
     // Hyperlane data structures
     uint32 private immutable HYPERLANE_DOMAIN_IDENTIFIER;
-    address private immutable HYPERLANE_OUTBOX;
 
     // Message Types
     enum MessageType {
@@ -104,11 +103,9 @@ abstract contract Hyperchat /*is Router*/ {
                 CONSTRUCTOR
     //////////////////////////////////////////////////////////////////////////////////////////////////*/
 
-    constructor(uint32 _hyperlaneDomainID, address _hyperlaneOutbox) payable {        
+    constructor(uint32 _hyperlaneDomainID) payable {        
         // Set to Hyperlane Domain Identifier of Station chain
         HYPERLANE_DOMAIN_IDENTIFIER = _hyperlaneDomainID;
-        // Set to Hyperlane Outbox on Station chain
-        HYPERLANE_OUTBOX = _hyperlaneOutbox;
     }
 
     /*//////////////////////////////////////////////////////////////////////////////////////////////////
@@ -268,11 +265,10 @@ abstract contract Hyperchat /*is Router*/ {
     ) public returns (bytes32 conversationID) {
         // Calculate conversationID
         // Extremely packed to prevent any chance of MEV abuse or collision
-        conversationID = bytes32(abi.encodePacked(
+        conversationID = bytes32(keccak256(abi.encodePacked(
             msg.sender,
             address(this),
             HYPERLANE_DOMAIN_IDENTIFIER,
-            HYPERLANE_OUTBOX,
             blockhash(1),
             block.number,
             block.difficulty,
@@ -282,7 +278,7 @@ abstract contract Hyperchat /*is Router*/ {
             conversationCount,
             _seed,
             _name
-        ));
+        )));
 
         if (_conversations[conversationID].conversationID == conversationID) {
             revert InvalidConversation();
@@ -291,22 +287,51 @@ abstract contract Hyperchat /*is Router*/ {
         // Convert msg.sender address
         bytes32 admin = addressToBytes32(msg.sender);
 
+        // Count all participants that aren't the sender
+        uint participantCount;
+        for (uint i; i < _participants.length;) {
+            if (_participants[i] != admin) {
+                participantCount += 1;
+            }
+            // Shouldn't overflow
+            unchecked { ++i; }
+        }
+        // Increment once for admin
+        participantCount += 1;
+
+        // Count all domainIDs that aren't the current one
+        uint domainCount;
+        for (uint i; i < _domainIDs.length;) {
+            if (_domainIDs[i] != HYPERLANE_DOMAIN_IDENTIFIER) {
+                domainCount += 1;
+            }
+            // Shouldn't overflow
+            unchecked { ++i; }
+        }
+        // Increment once for current domainID
+        domainCount += 1;
+
         // Prep InitiateConversation Message to duplicate action on other instances
         Message memory message;
         message.timestamp = block.timestamp;
         message.sender = admin;
-
+        message.participants = new bytes32[](participantCount);
+        message.domainIDs = new uint32[](domainCount);
+        
+        
         // Initialize Conversation
         _conversations[conversationID].conversationID = message.conversationID = conversationID;
         conversationCount += 1;
-
+        
         // Set initializer as conversation admin
         _conversations[conversationID].admins.push(admin); // Add to conversation admin array
         _conversations[conversationID].isAdmin[admin] = true; // Set admin status mapping
         _conversations[conversationID].adminApprovals[admin][admin] = true; // Set self-approval for admin status
-
+        
         // Process current Hyperlane domainID
-        _conversations[conversationID].domainIDs[0] = message.domainIDs[0] = HYPERLANE_DOMAIN_IDENTIFIER;
+        _conversations[conversationID].domainIDs.push(HYPERLANE_DOMAIN_IDENTIFIER);
+        message.domainIDs[0] = HYPERLANE_DOMAIN_IDENTIFIER;
+
         // Process user-supplied Hyperlane domainIDs
         uint offset;
         for (uint i = 1; i <= _domainIDs.length;) {
@@ -316,15 +341,19 @@ abstract contract Hyperchat /*is Router*/ {
                 unchecked { ++i; ++offset; }
                 continue;
             }
-            _conversations[conversationID].domainIDs[i] = message.domainIDs[i - offset] = _domainIDs[i - 1];
+            // Save the domain data
+            _conversations[conversationID].domainIDs.push(_domainIDs[i - 1]);
+            message.domainIDs[i - offset] = _domainIDs[i - 1];
             // Shouldn't overflow
             unchecked { ++i; }
         }
 
-        // Process participant addresses
-        offset = 0;
+        // Process initializer address
         _conversations[conversationID].allowlist[admin] = true;
         message.participants[0] = admin;
+        
+        // Process participant addresses
+        offset = 0;
         for (uint i = 1; i <= _participants.length;) {
             // Skip sender's address as that was already added
             if (_participants[i - 1] == admin) {
@@ -336,8 +365,7 @@ abstract contract Hyperchat /*is Router*/ {
             // Shouldn't overflow
             unchecked { ++i; }
         }
-        message.participants = _participants;
-
+        
         // Set conversation name
         if (_name.length > 0) {
             _conversations[conversationID].name = message.message = bytes.concat("Hyperlane: ", admin, " initiated ", _name, "!");
@@ -349,9 +377,9 @@ abstract contract Hyperchat /*is Router*/ {
         message.msgType = MessageType.InitiateConversation;
 
         emit ConversationCreated(conversationID, admin, _name);
-
+        
         sendMessage(conversationID, abi.encode(message));
-
+        
         return conversationID;
     }
 
@@ -600,9 +628,9 @@ abstract contract Hyperchat /*is Router*/ {
         // If 51% approval threshold isn't met, remove _address' conversation admin rights
         if (approvals <= adminCount / 2) {
             // Search through admins array for _address and remove it
-            for (uint j; j < adminCount;) {
-                if (_conversations[_conversationID].admins[j] == _address) {
-                    _removeFromAdminArray(_conversationID, j);
+            for (uint i; i < adminCount;) {
+                if (_conversations[_conversationID].admins[i] == _address) {
+                    _removeFromAdminArray(_conversationID, i);
                     break;
                 }
             }
@@ -758,6 +786,9 @@ abstract contract Hyperchat /*is Router*/ {
 
             // TODO: Dispatch message via Hyperlane to Hyperchat instance on domainID
             //_dispatch(domainID, _message);
+            
+            // Shouldn't overflow
+            unchecked { ++i; }
         }
 
         // Increment conversation message count
