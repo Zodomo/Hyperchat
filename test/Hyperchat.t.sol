@@ -35,6 +35,7 @@ contract HyperchatTest is DSTestPlus {
                 INITIATE CONVERSATION TESTS
     //////////////////////////////////////////////////////////////*/
 
+    // Test one function call to initiateConversation()
     function testLocalInitiateConversation() public {
         // Initiate a conversation
         convIDA = appA.initiateConversation(domainsA, participantsA, convSeedA, convNameA);
@@ -82,6 +83,7 @@ contract HyperchatTest is DSTestPlus {
         require(messageA.msgType == Hyperchat.MessageType.InitiateConversation, "Message: type incorrect");
     }
 
+    // Test two function calls to initiateConversation with the same exact data
     function testLocalInitiateConversationsDuplicateData() public {
         // Initiate two conversations with the same data
         convIDA = appA.initiateConversation(domainsA, participantsA, convSeedA, convNameA);
@@ -89,7 +91,6 @@ contract HyperchatTest is DSTestPlus {
         // Retrieve InitiateConversation message with retrieveMessages() function
         Hyperchat.Message[] memory messagesA = appA.retrieveMessages(convIDA, 0, 0);
         Hyperchat.Message[] memory messagesB = appA.retrieveMessages(convIDB, 0, 0);
-        Hyperchat.Message[] memory messages = appA.retrieveMessages(convIDB, 0, 0);
         Hyperchat.Message memory messageA = messagesA[0];
         Hyperchat.Message memory messageB = messagesB[0];
         // Retrieve conversation data after InitiateConversation
@@ -153,5 +154,59 @@ contract HyperchatTest is DSTestPlus {
         require(messageA.msgType == messageB.msgType, "Message: type incorrect");
     }
 
+    // Test adding valid admin approval for a conversation participant by a conversation admin
+    function testAddAdminApproval() public {
+        // Initiate a conversation
+        convIDA = appA.initiateConversation(domainsA, participantsA, convSeedA, convNameA);
+        // Give 0xABCD admin approval
+        appA.addAdminApproval(convIDA, participantsA[0], bytes(""));
+        
+        // Retrieve new _conversations data
+        (uint256 msgCountA, bytes32 conv_IDA, bytes memory conv_NameA) = appA.retrieveConversation(convIDA);
+        require(msgCountA == 2, "Conversation: messageCount incorrect");
 
+        // Retrieve new _messages data
+        Hyperchat.Message[] memory messagesA = appA.retrieveMessages(convIDA, 1, 1);
+        Hyperchat.Message memory messageA = messagesA[0];
+
+        // Check new _messages data
+        require(messageA.timestamp == block.timestamp, "Message: timestamp incorrect");
+        require(messageA.sender == deployerAddress, "Message: sender incorrect");
+        require(messageA.conversationID == convIDA, "Message: conversationID incorrect");
+        require(messageA.participants.length == 1, "Message: participants array length incorrect");
+        require(messageA.participants[0] == participantsA[0], "Message: participantsA array data incorrect");
+        require(messageA.domainIDs.length == 0, "Message: domainIDs array length incorrect");
+        require(keccak256(abi.encodePacked(messageA.message)) == 
+            keccak256(abi.encodePacked(bytes.concat("Hyperchat: ", deployerAddress, " gave admin approval for ", participantsA[0], "!"))),
+            "Message: name incorrect");
+        require(messageA.msgType == Hyperchat.MessageType.AddAdminApproval, "Message: type incorrect");
+    }
+
+    // Test adding valid admin approval for a conversation participant by a conversation admin with a custom message
+    function testAddAdminApprovalWithCustomMessage() public {
+        // Initiate a conversation
+        convIDA = appA.initiateConversation(domainsA, participantsA, convSeedA, convNameA);
+        // Give 0xABCD admin approval
+        appA.addAdminApproval(convIDA, participantsA[0], bytes("test"));
+        
+        // Retrieve new _conversations data
+        (uint256 msgCountA, bytes32 conv_IDA, bytes memory conv_NameA) = appA.retrieveConversation(convIDA);
+        require(msgCountA == 2, "Conversation: messageCount incorrect");
+
+        // Retrieve new _messages data
+        Hyperchat.Message[] memory messagesA = appA.retrieveMessages(convIDA, 1, 1);
+        Hyperchat.Message memory messageA = messagesA[0];
+
+        // Check new _messages data
+        require(messageA.timestamp == block.timestamp, "Message: timestamp incorrect");
+        require(messageA.sender == deployerAddress, "Message: sender incorrect");
+        require(messageA.conversationID == convIDA, "Message: conversationID incorrect");
+        require(messageA.participants.length == 1, "Message: participants array length incorrect");
+        require(messageA.participants[0] == participantsA[0], "Message: participantsA array data incorrect");
+        require(messageA.domainIDs.length == 0, "Message: domainIDs array length incorrect");
+        require(keccak256(abi.encodePacked(messageA.message)) == 
+            keccak256(abi.encodePacked(bytes("test"))),
+            "Message: name incorrect");
+        require(messageA.msgType == Hyperchat.MessageType.AddAdminApproval, "Message: type incorrect");
+    }
 }

@@ -143,8 +143,8 @@ contract Hyperchat /*is Router*/ {
         Message[] memory messages = new Message[](range);
         
         // Iterate across range and retrieve each message
-        for (uint256 i; i + initialMessage <= finalMessage;) {
-            messages[i] = _messages[_conversationID][i];
+        for (uint256 i = initialMessage; i <= finalMessage;) {
+            messages[i - initialMessage] = _messages[_conversationID][i];
             // Cant overflow as we confirm range bounds before loop
             unchecked { ++i; }
         }
@@ -451,19 +451,20 @@ contract Hyperchat /*is Router*/ {
         
         // Convert msg.sender address
         bytes32 admin = addressToBytes32(msg.sender);
-
+        
         // Add admin vote for admin rights approval, revert if approval is already true
         if (!_conversations[_conversationID].adminApprovals[admin][_address]) {
             _conversations[_conversationID].adminApprovals[admin][_address] = true;
         } else {
             revert InvalidApprovals();
         }
-
+        
         // Prepare AddAdminApproval Message
         Message memory message;
         message.timestamp = block.timestamp;
         message.sender = admin;
         message.conversationID = _conversationID;
+        message.participants = new bytes32[](1);
         message.participants[0] = _address;
         if (_message.length > 0) {
             message.message = _message;
@@ -472,7 +473,7 @@ contract Hyperchat /*is Router*/ {
             message.message = bytes.concat("Hyperchat: ", admin, " gave admin approval for ", _address, "!");
         }
         message.msgType = MessageType.AddAdminApproval;
-
+        
         sendMessage(_conversationID, abi.encode(message));
 
         emit AdminApprovalAdded(_conversationID, admin, _address);
