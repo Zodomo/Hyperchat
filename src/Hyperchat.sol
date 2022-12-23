@@ -180,23 +180,6 @@ abstract contract Hyperchat is /*Router,*/ Ownable2Step {
         _conversations[_conversationID].admins.pop();
     }
 
-    // Removes domainID at domainIDs array _index
-    function _removeFromDomainIDArray(bytes32 _conversationID, uint256 _index) internal {
-        // Revert if index out of bounds
-        uint256 length = _conversations[_conversationID].domainIDs.length;
-        if (_index >= length) {
-            revert InvalidLength();
-        }
-
-        for (uint i = _index; i < length - 1;) {
-            _conversations[_conversationID].domainIDs[i] = _conversations[_conversationID].domainIDs[i + 1];
-            // Shouldn't overflow
-            unchecked { ++i; }
-        }
-
-        _conversations[_conversationID].domainIDs.pop();
-    }
-
     // Process a received message
     function _processMessage(Message memory _message) internal {
         // Retrieve conversationID
