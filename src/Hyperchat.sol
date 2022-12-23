@@ -203,6 +203,38 @@ abstract contract Hyperchat is /*Router,*/ Ownable2Step {
         _conversations[_conversationID].domainIDs.pop();
     }
 
+    // Process a received message
+    function _processMessage(Message memory _message) internal {
+        // Retrieve conversationID
+        bytes32 conversationID = _message.conversationID;
+        // Retrieve sender
+        bytes32 sender = _message.sender;
+        // Retrieve MessageType
+        MessageType msgType = _message.msgType;
+
+        if (msgType == MessageType.InitiateConversation) {
+            _processInitiateConversation(_message);
+        }
+        else if (msgType == MessageType.AddAdminApproval || msgType == MessageType.RemoveAdminApproval) {
+            _processAdminApprovalMessage(_message);
+        }
+        else if (msgType == MessageType.AddAdmin || msgType == MessageType.RemoveAdmin) {
+            
+        }
+        else if (msgType == MessageType.AddParticipant || msgType == MessageType.RemoveParticipant) {
+            _processParticipantMessage(_message);
+        }
+        else if (msgType == MessageType.AddHyperlaneDomain || msgType == MessageType.RemoveHyperlaneDomain) {
+            
+        }
+        else if (msgType == MessageType.GeneralMessage) {
+            
+        }
+        else {
+            revert InvalidType();
+        }
+    }
+
     /*//////////////////////////////////////////////////////////////////////////////////////////////////
                 CONVERSATION FUNCTIONS
     //////////////////////////////////////////////////////////////////////////////////////////////////*/
@@ -253,34 +285,38 @@ abstract contract Hyperchat is /*Router,*/ Ownable2Step {
         conversationCount += 1;
 
         // Set initializer as conversation admin
-        _conversations[conversationID].parties[admin] = true; // Add to conversation as participant
         _conversations[conversationID].admins.push(admin); // Add to conversation admin array
         _conversations[conversationID].isAdmin[admin] = true; // Set admin status mapping
         _conversations[conversationID].adminApprovals[admin][admin] = true; // Set self-approval for admin status
 
         // Process current Hyperlane domainID
-        _conversations[conversationID].domainIDs.push(HYPERLANE_DOMAIN_IDENTIFIER);
+        _conversations[conversationID].domainIDs[0] = message.domainIDs[0] = HYPERLANE_DOMAIN_IDENTIFIER;
         // Process user-supplied Hyperlane domainIDs
-        for (uint i; i < _domainIDs.length;) {
+        uint offset;
+        for (uint i = 1; i <= _domainIDs.length;) {
             // Skip the domainID for this chain if supplied as that was already added
-            if (_domainIDs[i] == HYPERLANE_DOMAIN_IDENTIFIER) {
-                unchecked { ++i; }
+            if (_domainIDs[i - 1] == HYPERLANE_DOMAIN_IDENTIFIER) {
+                // Shouldn't overflow
+                unchecked { ++i; ++offset; }
                 continue;
             }
-            _conversations[conversationID].domainIDs.push(_domainIDs[i]);
+            _conversations[conversationID].domainIDs[i] = message.domainIDs[i - offset] = _domainIDs[i - 1];
             // Shouldn't overflow
             unchecked { ++i; }
         }
-        message.domainIDs = _domainIDs;
 
         // Process participant addresses
-        for (uint i; i < _parties.length;) {
+        offset = 0;
+        _conversations[conversationID].parties[admin] = true;
+        message.participants[0] = admin;
+        for (uint i = 1; i <= _parties.length;) {
             // Skip sender's address as that was already added
-            if (_parties[i] == admin) {
-                unchecked { ++i; }
+            if (_parties[i - 1] == admin) {
+                unchecked { ++i; ++offset; }
                 continue;
             }
-            _conversations[conversationID].parties[_parties[i]] = true;
+            _conversations[conversationID].parties[_parties[i - 1]] = true;
+            message.participants[i - offset] = _parties[i - 1];
             // Shouldn't overflow
             unchecked { ++i; }
         }
@@ -300,7 +336,7 @@ abstract contract Hyperchat is /*Router,*/ Ownable2Step {
     }
 
     // Internal InitiateConversation Message type processing logic
-    function _processInitiateConversation(uint32 _originDomainID, Message memory _message) internal {
+    function _processInitiateConversation(Message memory _message) internal {
         // Retrieve conversationID
         bytes32 conversationID = _message.conversationID;
         // Retrieve sender address
@@ -316,20 +352,12 @@ abstract contract Hyperchat is /*Router,*/ Ownable2Step {
         conversationCount += 1;
 
         // Set initializer as conversation admin
-        _conversations[conversationID].parties[sender] = true; // Add to conversation as participant
         _conversations[conversationID].admins.push(sender); // Add to conversation admin array
         _conversations[conversationID].isAdmin[sender] = true; // Set admin status mapping
         _conversations[conversationID].adminApprovals[sender][sender] = true; // Set self-approval for admin status
 
-        // Process origin Hyperlane DomainID
-        _conversations[conversationID].domainIDs.push(_originDomainID);
-        // Process remaining Hyperlane domainIDs
+        // Process Hyperlane domainIDs
         for (uint i; i < _message.domainIDs.length;) {
-            // Skip the domainID for origin chain if supplied as that was already added
-            if (_message.domainIDs[i] == _originDomainID) {
-                unchecked { ++i; }
-                continue;
-            }
             _conversations[conversationID].domainIDs.push(_message.domainIDs[i]);
             // Shouldn't overflow
             unchecked { ++i; }
@@ -337,11 +365,6 @@ abstract contract Hyperchat is /*Router,*/ Ownable2Step {
 
         // Process participant addresses
         for (uint i; i < _message.participants.length;) {
-            // Skip sender's address as that was already added
-            if (_message.participants[i] == sender) {
-                unchecked { ++i; }
-                continue;
-            }
             _conversations[conversationID].parties[_message.participants[i]] = true;
             // Shouldn't overflow
             unchecked { ++i; }
@@ -867,28 +890,8 @@ abstract contract Hyperchat is /*Router,*/ Ownable2Step {
 
         emit MessageReceived(conversationID, sender, _message)
 
-        // TODO: Call appropriate processing function for MessageType
-        if (msgType == MessageType.InitiateConversation) {
-            _processInitiateConversation(_origin, message);
-        }
-        else if (msgType == MessageType.AddAdminApproval || msgType == MessageType.RemoveAdminApproval) {
-            _processAdminApprovalMessage(message);
-        }
-        else if (msgType == MessageType.AddAdmin || msgType == MessageType.RemoveAdmin) {
-            
-        }
-        else if (msgType == MessageType.AddParticipant || msgType == MessageType.RemoveParticipant) {
-            _processParticipantMessage(_message);
-        }
-        else if (msgType == MessageType.AddHyperlaneDomain || msgType == MessageType.RemoveHyperlaneDomain) {
-            
-        }
-        else if (msgType == MessageType.GeneralMessage) {
-            emit GeneralMessage(conversationID, sender, _message);
-        }
-        else {
-            revert InvalidType();
-        }
+        // Process Message data
+        _processMessage(message);
 
         // Save message in _messages storage
         _messages[conversationID][_conversations[conversationID].messageCount] = _message;
