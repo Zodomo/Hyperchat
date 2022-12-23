@@ -2,10 +2,9 @@
 pragma solidity ^0.8.17;
 
 //import "hyperlane/Router.sol";
-import "openzeppelin-contracts/access/Ownable2Step.sol";
 
 // Hyperchat is a contract that leverages the Hyperlane Messaging API to relay chat messages to users of any chain
-abstract contract Hyperchat is /*Router,*/ Ownable2Step {
+abstract contract Hyperchat /*is Router*/ {
 
     /*//////////////////////////////////////////////////////////////////////////////////////////////////
                 EVENTS/ERRORS
@@ -105,10 +104,7 @@ abstract contract Hyperchat is /*Router,*/ Ownable2Step {
                 CONSTRUCTOR
     //////////////////////////////////////////////////////////////////////////////////////////////////*/
 
-    constructor(uint32 _hyperlaneDomainID, address _hyperlaneOutbox) payable {
-        // Transfer ownership of the contract to deployer
-        _transferOwnership(msg.sender);
-        
+    constructor(uint32 _hyperlaneDomainID, address _hyperlaneOutbox) payable {        
         // Set to Hyperlane Domain Identifier of Station chain
         HYPERLANE_DOMAIN_IDENTIFIER = _hyperlaneDomainID;
         // Set to Hyperlane Outbox on Station chain
