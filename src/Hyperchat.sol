@@ -20,6 +20,7 @@ abstract contract Hyperchat is /*Router,*/ Ownable2Step {
     event ParticipantRemoved(bytes32 indexed conversationID, bytes32 indexed admin, bytes32 indexed participant);
     event ChainAdded(bytes32 indexed conversationID, bytes32 indexed admin, uint32 indexed domainID);
     event ChainRemoved(bytes32 indexed conversationID, bytes32 indexed admin, uint32 indexed domainID);
+    event GeneralMessage(bytes32 indexed conversationID, bytes32 indexed sender, bytes indexed message);
     event MessageSent(bytes32 indexed conversationID, bytes32 indexed sender, bytes indexed message);
     event MessageReceived(bytes32 indexed conversationID, bytes32 indexed sender, bytes indexed message);
 
@@ -28,6 +29,7 @@ abstract contract Hyperchat is /*Router,*/ Ownable2Step {
     error InvalidApprovals();
     error InvalidInstance();
     error InvalidDomainID();
+    error InvalidMessage();
     error InvalidLength();
     error InvalidAdmin();
     error InvalidType();
@@ -51,7 +53,7 @@ abstract contract Hyperchat is /*Router,*/ Ownable2Step {
         RemoveParticipant,
         AddHyperlaneDomain,
         RemoveHyperlaneDomain,
-        NormalMessage
+        GeneralMessage
     }
 
     // Message data struct
@@ -202,7 +204,7 @@ abstract contract Hyperchat is /*Router,*/ Ownable2Step {
     }
 
     /*//////////////////////////////////////////////////////////////////////////////////////////////////
-                CONVERSATION MANAGEMENT FUNCTIONS
+                CONVERSATION FUNCTIONS
     //////////////////////////////////////////////////////////////////////////////////////////////////*/
 
     /*//////////////////////////////////////////////////////////////////////////////
@@ -347,9 +349,6 @@ abstract contract Hyperchat is /*Router,*/ Ownable2Step {
 
         // Set conversation name
         _conversations[conversationID].name = _message.message;
-
-        // Save message in _messages storage
-        _messages[conversationID][0] = _message;
 
         emit ConversationCreated(conversationID, sender, _message.message);
     }
@@ -705,6 +704,34 @@ abstract contract Hyperchat is /*Router,*/ Ownable2Step {
         emit ChainRemoved(_conversationID, addressToBytes32(msg.sender), _domainID);
     }
 
+    /*//////////////////////////////////////////////////////////////////////////////
+                GENERAL MESSAGES
+    //////////////////////////////////////////////////////////////////////////////*/
+
+    // Send general message
+    function generalMessage(bytes32 _conversationID, bytes memory _message) public onlyMember(_conversationID) {
+        // Revert if _message is zero bytes
+        if (_message.length == 0) {
+            revert InvalidMessage();
+        }
+        
+        // Convert msg.sender address
+        bytes32 sender = addressToBytes32(msg.sender);
+        
+        Message memory message;
+        message.timestamp = block.timestamp;
+        message.sender = sender;
+        message.conversationID;
+        message.message = _message;
+        message.msgType = MessageType.GeneralMessage;
+        // Convert Memory object to bytes for function call and event emission
+        bytes memory envelope = abi.encode(message);
+
+        sendMessage(_conversationID, envelope);
+
+        emit GeneralMessage(_conversationID, sender, envelope);
+    }
+
     /*//////////////////////////////////////////////////////////////////////////////////////////////////
                 SEND/RECEIVE MESSAGE LOGIC
     //////////////////////////////////////////////////////////////////////////////////////////////////*/
@@ -721,7 +748,6 @@ abstract contract Hyperchat is /*Router,*/ Ownable2Step {
             if (domainID == HYPERLANE_DOMAIN_IDENTIFIER) {
                 // Still append to _messages mapping though
                 _messages[_conversationID][_conversations[_conversationID].messageCount] = abi.decode(_message, (Message));
-                _conversations[_conversationID].messageCount += 1;
                 // Shouldn't overflow
                 unchecked { ++i; }
                 continue;
@@ -730,6 +756,9 @@ abstract contract Hyperchat is /*Router,*/ Ownable2Step {
             // TODO: Dispatch message via Hyperlane to Hyperchat instance on domainID
             //_dispatch(domainID, _message);
         }
+
+        // Increment conversation message count
+        _conversations[_conversationID].messageCount += 1;
 
         emit MessageSent(_conversationID, addressToBytes32(msg.sender), _message);
     }
@@ -757,21 +786,30 @@ abstract contract Hyperchat is /*Router,*/ Ownable2Step {
         if (msgType == MessageType.InitiateConversation) {
             _processInitiateConversation(_origin, message);
         }
-        if (msgType == MessageType.AddAdminApproval || msgType == MessageType.RemoveAdminApproval) {
+        else if (msgType == MessageType.AddAdminApproval || msgType == MessageType.RemoveAdminApproval) {
             _processAdminApprovalMessage(message);
         }
-        if (msgType == MessageType.AddAdmin || msgType == MessageType.RemoveAdmin) {
+        else if (msgType == MessageType.AddAdmin || msgType == MessageType.RemoveAdmin) {
             
         }
-        if (msgType == MessageType.AddParticipant || msgType == MessageType.RemoveParticipant) {
+        else if (msgType == MessageType.AddParticipant || msgType == MessageType.RemoveParticipant) {
+            _processParticipantMessage(_message);
+        }
+        else if (msgType == MessageType.AddHyperlaneDomain || msgType == MessageType.RemoveHyperlaneDomain) {
             
         }
-        if (msgType == MessageType.AddAdmin || msgType == MessageType.RemoveAdmin) {
-            
+        else if (msgType == MessageType.GeneralMessage) {
+            emit GeneralMessage(conversationID, sender, _message);
         }
-        if (msgType == MessageType.NormalMessage) {
+        else {
+            revert InvalidType();
+        }
 
-        }
+        // Save message in _messages storage
+        _messages[conversationID][_conversations[conversationID].messageCount] = _message;
+
+        // Increment conversation message count
+        _conversations[conversationID].messageCount += 1;
     }
     */
 }
