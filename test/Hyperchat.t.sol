@@ -154,8 +154,10 @@ contract HyperchatTest is DSTestPlus {
         require(messageA.msgType == messageB.msgType, "Message: type incorrect");
     }
 
+
+
     // Test adding valid admin approval for a conversation participant by a conversation admin
-    function testAddAdminApproval() public {
+    function testLocalAddAdminApproval() public {
         // Initiate a conversation
         convIDA = appA.initiateConversation(domainsA, participantsA, convSeedA, convNameA);
         // Give 0xABCD admin approval
@@ -183,7 +185,7 @@ contract HyperchatTest is DSTestPlus {
     }
 
     // Test adding valid admin approval for a conversation participant by a conversation admin with a custom message
-    function testAddAdminApprovalWithCustomMessage() public {
+    function testLocalAddAdminApprovalWithCustomMessage() public {
         // Initiate a conversation
         convIDA = appA.initiateConversation(domainsA, participantsA, convSeedA, convNameA);
         // Give 0xABCD admin approval
@@ -208,5 +210,51 @@ contract HyperchatTest is DSTestPlus {
             keccak256(abi.encodePacked(bytes("test"))),
             "Message: name incorrect");
         require(messageA.msgType == Hyperchat.MessageType.AddAdminApproval, "Message: type incorrect");
+    }
+
+    // Test duplicate add admin approval calls
+    // Should fail with InvalidApprovals error
+    function testLocalAddAdminApprovalDuplicate() public {
+        // Initiate a conversation
+        convIDA = appA.initiateConversation(domainsA, participantsA, convSeedA, convNameA);
+        // Give 0xABCD admin approval
+        appA.addAdminApproval(convIDA, participantsA[0], bytes(""));
+
+        // Duplicate 0xABCD admin approval
+        // Expect InvalidApprovals error as duplicate approvals are blocked
+        hevm.expectRevert(Hyperchat.InvalidApprovals.selector);
+        appA.addAdminApproval(convIDA, participantsA[0], bytes(""));
+    }
+
+    // Test giving admin approval to a non-participant address
+    // Should fail with InvalidParticipant error
+    function testLocalAddAdminApprovalInvalidParticipant() public {
+        // Initiate a conversation
+        convIDA = appA.initiateConversation(domainsA, participantsA, convSeedA, convNameA);
+        // Give 0xABCD admin approval
+        // Expect InvalidParticipant error as address isnt a participant
+        hevm.expectRevert(Hyperchat.InvalidParticipant.selector);
+        appA.addAdminApproval(convIDA, addressToBytes32(address(0xDEED)), bytes(""));
+    }
+
+    // Test attempting to give admin approval as a non-admin
+    // Should fail with InvalidAdmin error
+    function testLocalAddAdminApprovalInvalidAdmin() public {
+        // Initiate a conversation
+        convIDA = appA.initiateConversation(domainsA, participantsA, convSeedA, convNameA);
+        // Give 0xABCD admin approval
+        // Expect InvalidAdmin error as address isnt an admin
+        hevm.startPrank(address(0xABCD));
+        hevm.expectRevert(Hyperchat.InvalidAdmin.selector);
+        appA.addAdminApproval(convIDA, addressToBytes32(address(0xDEED)), bytes(""));
+        hevm.stopPrank();
+    }
+
+    // Test attempting to give admin approval for a non-existing conversation
+    // Should fail with InvalidConversation error
+    function testLocalAddAdminApprovalInvalidConversation() public {
+        // Expect InvalidAdmin error as bytes32("test") is not yet a valid conversation ID
+        hevm.expectRevert(Hyperchat.InvalidConversation.selector);
+        appA.addAdminApproval(bytes32("test"), addressToBytes32(address(0xABCD)), bytes(""));
     }
 }
