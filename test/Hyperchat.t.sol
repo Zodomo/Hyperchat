@@ -371,4 +371,92 @@ contract HyperchatTest is DSTestPlus {
         hevm.expectRevert(Hyperchat.InvalidConversation.selector);
         appA.removeAdminApproval(bytes32("test"), participantsA[0], bytes(""));
     }
+
+    /*//////////////////////////////////////////////////////////////
+                LOCAL ADD PARTICIPANT TESTS
+    //////////////////////////////////////////////////////////////*/
+
+    // Test valid admin adding a participant address to an existing conversation
+    function testLocalAddParticipant() public {
+        // Initiate a conversation
+        convIDA = appA.initiateConversation(domainsA, participantsA, convSeedA, convNameA);
+        // Add 0xDEED to the conversation
+        appA.addParticipant(convIDA, addressToBytes32(address(0xDEED)), bytes(""));
+
+        // Retrieve conversation data after InitiateConversation
+        (uint256 msgCountA,,) = appA.retrieveConversation(convIDA);
+
+        // Retrieve AddParticipant message with retrieveMessages() function
+        Hyperchat.Message[] memory messagesA = appA.retrieveMessages(convIDA, 1, 1);
+        Hyperchat.Message memory messageA = messagesA[0];
+
+        // Check _conversations data
+        require(msgCountA == 2, "Conversation: messageCount incorrect");
+
+        // Check _messages data
+        require(messageA.timestamp == block.timestamp, "Message: timestamp incorrect");
+        require(messageA.sender == deployerAddress, "Message: sender incorrect");
+        require(messageA.conversationID == convIDA, "Message: conversationID incorrect");
+        require(messageA.participants.length == 1, "Message: participants array length incorrect");
+        require(messageA.participants[0] == addressToBytes32(address(0xDEED)), "Message: participants array data incorrect");
+        require(messageA.domainIDs.length == 0, "Message: domainIDs array length incorrect");
+        require(keccak256(abi.encodePacked(messageA.message)) == 
+            keccak256(abi.encodePacked(bytes.concat("Hyperchat: Welcome ", addressToBytes32(address(0xDEED)), "!"))),
+            "Message: name incorrect");
+        require(messageA.msgType == Hyperchat.MessageType.AddParticipant, "Message: type incorrect");
+    }
+
+    // Test valid admin adding a participant address to an existing conversation with a custom message
+    function testLocalAddParticipantWithCustomMessage() public {
+        // Initiate a conversation
+        convIDA = appA.initiateConversation(domainsA, participantsA, convSeedA, convNameA);
+        // Add 0xDEED to the conversation
+        appA.addParticipant(convIDA, addressToBytes32(address(0xDEED)), bytes("test"));
+
+        // Retrieve conversation data after InitiateConversation
+        (uint256 msgCountA,,) = appA.retrieveConversation(convIDA);
+
+        // Retrieve AddParticipant message with retrieveMessages() function
+        Hyperchat.Message[] memory messagesA = appA.retrieveMessages(convIDA, 1, 1);
+        Hyperchat.Message memory messageA = messagesA[0];
+
+        // Check _conversations data
+        require(msgCountA == 2, "Conversation: messageCount incorrect");
+
+        // Check _messages data
+        require(keccak256(abi.encodePacked(messageA.message)) == 
+            keccak256(abi.encodePacked(bytes("test"))),
+            "Message: name incorrect");
+    }
+
+    // Test duplicate participant additions
+    // Should fail with InvalidParticipant error
+    function testLocalAddParticipantDuplicate() public {
+        // Initiate a conversation
+        convIDA = appA.initiateConversation(domainsA, participantsA, convSeedA, convNameA);
+        // Add 0xDEED to the conversation
+        appA.addParticipant(convIDA, addressToBytes32(address(0xDEED)), bytes(""));
+
+        // Duplicate add 0xDEED as participant transaction
+        // Expect InvalidParticipant error as duplicate additions are not allowed
+        hevm.expectRevert(Hyperchat.InvalidParticipant.selector);
+        appA.addParticipant(convIDA, addressToBytes32(address(0xDEED)), bytes(""));
+    }
+
+    // Test self-adding as participant to an already joined conversation
+    // Should fail with InvalidParticipant error
+    function testLocalAddParticipantSelf() public {
+        // Initiate a conversation
+        convIDA = appA.initiateConversation(domainsA, participantsA, convSeedA, convNameA);
+        // Add 0xDEED to the conversation
+        // Expect InvalidParticipant error as address is already a participant
+        hevm.expectRevert(Hyperchat.InvalidParticipant.selector);
+        appA.addParticipant(convIDA, addressToBytes32(address(this)), bytes(""));
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                LOCAL REMOVE PARTICIPANT TESTS
+    //////////////////////////////////////////////////////////////*/
+
+    
 }

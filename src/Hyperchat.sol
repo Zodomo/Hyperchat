@@ -697,6 +697,7 @@ contract Hyperchat /*is Router*/ {
         message.timestamp = block.timestamp;
         message.sender = admin;
         message.conversationID = _conversationID;
+        message.participants = new bytes32[](1);
         message.participants[0] = _address;
         if (_message.length > 0) {
             message.message = _message;
