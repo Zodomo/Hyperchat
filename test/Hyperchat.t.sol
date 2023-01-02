@@ -454,9 +454,145 @@ contract HyperchatTest is DSTestPlus {
         appA.addParticipant(convIDA, addressToBytes32(address(this)), bytes(""));
     }
 
+    // Test adding a participant as a non-admin, but valid participant
+    // Should fail with InvalidAdmin error
+    function testLocalAddParticipantAsNonAdmin() public {
+        // Initiate a conversation
+        convIDA = appA.initiateConversation(domainsA, participantsA, convSeedA, convNameA);
+        // Add 0xDEED to the conversation as non-admin address 0xABCD
+        // Expect InvalidAdmin error as 0xABCD is not an admin
+        hevm.startPrank(address(0xABCD));
+        hevm.expectRevert(Hyperchat.InvalidAdmin.selector);
+        appA.addParticipant(convIDA, addressToBytes32(address(0xDEED)), bytes(""));
+        hevm.stopPrank();
+    }
+
+    // Test adding a participant to a conversation as a non-participant
+    // Should fail with InvalidAdmin error
+    function testLocalAddParticipantAsNonParticipant() public {
+        // Initiate a conversation
+        convIDA = appA.initiateConversation(domainsA, participantsA, convSeedA, convNameA);
+        // Add 0xDEED to the conversation as non-participant 0xDEED
+        // Expect InvalidAdmin error as 0xDEED is not a conversation participant so they cant be admin
+        hevm.startPrank(address(0xDEED));
+        hevm.expectRevert(Hyperchat.InvalidAdmin.selector);
+        appA.addParticipant(convIDA, addressToBytes32(address(0xDEED)), bytes(""));
+        hevm.stopPrank();
+    }
+
     /*//////////////////////////////////////////////////////////////
                 LOCAL REMOVE PARTICIPANT TESTS
     //////////////////////////////////////////////////////////////*/
 
-    
+    // Test valid admin removing a participant address from an existing conversation
+    function testLocalRemoveParticipant() public {
+        // Initiate a conversation
+        convIDA = appA.initiateConversation(domainsA, participantsA, convSeedA, convNameA);
+        // Add 0xDEED to the conversation
+        appA.addParticipant(convIDA, addressToBytes32(address(0xDEED)), bytes(""));
+        // Remove 0xDEED from the conversation
+        appA.removeParticipant(convIDA, addressToBytes32(address(0xDEED)), bytes(""));
+
+        // Retrieve conversation data after InitiateConversation
+        (uint256 msgCountA,,) = appA.retrieveConversation(convIDA);
+
+        // Retrieve AddParticipant message with retrieveMessages() function
+        Hyperchat.Message[] memory messagesA = appA.retrieveMessages(convIDA, 2, 2);
+        Hyperchat.Message memory messageA = messagesA[0];
+
+        // Check _conversations data
+        require(msgCountA == 3, "Conversation: messageCount incorrect");
+
+        // Check _messages data
+        require(messageA.timestamp == block.timestamp, "Message: timestamp incorrect");
+        require(messageA.sender == deployerAddress, "Message: sender incorrect");
+        require(messageA.conversationID == convIDA, "Message: conversationID incorrect");
+        require(messageA.participants.length == 1, "Message: participants array length incorrect");
+        require(messageA.participants[0] == addressToBytes32(address(0xDEED)), "Message: participants array data incorrect");
+        require(messageA.domainIDs.length == 0, "Message: domainIDs array length incorrect");
+        require(keccak256(abi.encodePacked(messageA.message)) == 
+            keccak256(abi.encodePacked(bytes.concat("Hyperchat: Goodbye ", addressToBytes32(address(0xDEED)), "!"))),
+            "Message: name incorrect");
+        require(messageA.msgType == Hyperchat.MessageType.RemoveParticipant, "Message: type incorrect");
+    }
+
+    // Test valid admin removing a participant address from an existing conversation with a custom message
+    function testLocalRemoveParticipantWithCustomMessage() public {
+        // Initiate a conversation
+        convIDA = appA.initiateConversation(domainsA, participantsA, convSeedA, convNameA);
+        // Add 0xDEED to the conversation
+        appA.addParticipant(convIDA, addressToBytes32(address(0xDEED)), bytes(""));
+        // Remove 0xDEED from the conversation
+        appA.removeParticipant(convIDA, addressToBytes32(address(0xDEED)), bytes("test"));
+
+        // Retrieve conversation data after InitiateConversation
+        (uint256 msgCountA,,) = appA.retrieveConversation(convIDA);
+
+        // Retrieve AddParticipant message with retrieveMessages() function
+        Hyperchat.Message[] memory messagesA = appA.retrieveMessages(convIDA, 2, 2);
+        Hyperchat.Message memory messageA = messagesA[0];
+
+        // Check _conversations data
+        require(msgCountA == 3, "Conversation: messageCount incorrect");
+
+        // Check _messages data
+        require(keccak256(abi.encodePacked(messageA.message)) == 
+            keccak256(abi.encodePacked(bytes("test"))),
+            "Message: name incorrect");
+    }
+
+    // Test duplicate participant removals
+    // Should fail with InvalidParticipant error
+    function testLocalRemoveParticipantDuplicate() public {
+        // Initiate a conversation
+        convIDA = appA.initiateConversation(domainsA, participantsA, convSeedA, convNameA);
+        // Add 0xDEED to the conversation
+        appA.addParticipant(convIDA, addressToBytes32(address(0xDEED)), bytes(""));
+        // Remove 0xDEED from the conversation
+        appA.removeParticipant(convIDA, addressToBytes32(address(0xDEED)), bytes(""));
+
+        // Duplicate remove 0xDEED as participant transaction
+        // Expect InvalidParticipant error as address is no longer a participant
+        hevm.expectRevert(Hyperchat.InvalidParticipant.selector);
+        appA.removeParticipant(convIDA, addressToBytes32(address(0xDEED)), bytes(""));
+    }
+
+    // Test self-removing as participant to an already joined conversation
+    // Should fail with InvalidAdmin error
+    function testLocalRemoveParticipantSelfAsNonAdmin() public {
+        // Initiate a conversation
+        convIDA = appA.initiateConversation(domainsA, participantsA, convSeedA, convNameA);
+        
+        // Prank as non-admin address 0xABCD
+        hevm.startPrank(address(0xABCD));
+        // Expect self-removal to fail as 0xABCD is not an admin
+        hevm.expectRevert(Hyperchat.InvalidAdmin.selector);
+        // Remove 0xDEED from the conversation
+        appA.removeParticipant(convIDA, addressToBytes32(address(0xABCD)), bytes(""));
+        hevm.stopPrank();
+    }
+
+    // Test self-removing as a conversation admin
+    // Should fail with InvalidAdmin error
+    function testLocalRemoveParticipantSelfAsAdmin() public {
+        // Initiate a conversation (initiator is automatically admin)
+        convIDA = appA.initiateConversation(domainsA, participantsA, convSeedA, convNameA);
+        // Remove admin self from the conversation
+        // Expect InvalidAdmin error as active admins cannot remove themselves
+        hevm.expectRevert(Hyperchat.InvalidAdmin.selector);
+        appA.removeParticipant(convIDA, deployerAddress, bytes(""));
+    }
+
+    // Test removing a valid address from a valid conversation as a non-participant address
+    // Should fail with InvalidAdmin error
+    function testLocalRemoveParticipantAsNonParticipant() public {
+        // Initiate a conversation
+        convIDA = appA.initiateConversation(domainsA, participantsA, convSeedA, convNameA);
+        // Remove 0xABCD from the conversation as non-participant 0xDEED
+        // Expect InvalidAdmin error as 0xDEED is not a conversation admin/participant
+        hevm.startPrank(address(0xDEED));
+        hevm.expectRevert(Hyperchat.InvalidAdmin.selector);
+        appA.addParticipant(convIDA, addressToBytes32(address(0xABCD)), bytes(""));
+        hevm.stopPrank();
+    }
 }

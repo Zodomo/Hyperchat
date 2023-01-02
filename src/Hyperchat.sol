@@ -718,11 +718,15 @@ contract Hyperchat /*is Router*/ {
         bytes32 _address,
         bytes memory _message
     ) public onlyAdmin(_conversationID) {
-        // Remove if present, else revert
-        if (_conversations[_conversationID].allowlist[_address]) {
-            delete _conversations[_conversationID].allowlist[_address];
-        } else {
+        // Remove if present and non-admin, else revert
+        if (!_conversations[_conversationID].allowlist[_address]) {
             revert InvalidParticipant();
+        }
+        else if (_conversations[_conversationID].isAdmin[_address]) {
+            revert InvalidAdmin();
+        }
+        else {
+            delete _conversations[_conversationID].allowlist[_address];
         }
 
         // Convert msg.sender address
@@ -733,6 +737,7 @@ contract Hyperchat /*is Router*/ {
         message.timestamp = block.timestamp;
         message.sender = admin;
         message.conversationID = _conversationID;
+        message.participants = new bytes32[](1);
         message.participants[0] = _address;
         if (_message.length > 0) {
             message.message = _message;
