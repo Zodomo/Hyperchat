@@ -2,6 +2,7 @@
 pragma solidity ^0.8.17;
 
 import {DSTestPlus} from "solmate/test/utils/DSTestPlus.sol";
+import "forge-std/console.sol";
 import "../src/Hyperchat.sol";
 
 contract HyperchatTest is DSTestPlus {
@@ -10,7 +11,10 @@ contract HyperchatTest is DSTestPlus {
                 SETUP
     //////////////////////////////////////////////////////////////*/
 
-    bytes32 deployerAddress = addressToBytes32(0xb4c79daB8f259C7Aee6E5b2Aa729821864227e84);
+    address deployerAddress = 0xb4c79daB8f259C7Aee6E5b2Aa729821864227e84;
+    address deployerAddress2 = 0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496;
+    bytes32 deployerAddressBytes = addressToBytes32(deployerAddress);
+    bytes32 deployerAddress2Bytes = addressToBytes32(deployerAddress2);
 
     // Converts address to bytes32 for Hyperlane
     function addressToBytes32(address _address) public pure returns (bytes32) {
@@ -45,22 +49,42 @@ contract HyperchatTest is DSTestPlus {
         // Retrieve conversation data after InitiateConversation
         (uint256 msgCountA, bytes32 conv_IDA, bytes memory conv_NameA) = appA.retrieveConversation(convIDA);
 
+        bytes32 conversationIDA;
+
         // Confirm conversationID is generated properly
         uint256 convCount = 0;
-        bytes32 conversationIDA = bytes32(keccak256(abi.encodePacked(
-            0xb4c79daB8f259C7Aee6E5b2Aa729821864227e84,
-            address(appA),
-            domainsA[0],
-            blockhash(1),
-            block.number,
-            block.difficulty,
-            block.timestamp,
-            block.chainid,
-            block.coinbase,
-            convCount,
-            convSeedA,
-            convNameA
-        )));
+        if (address(this) == deployerAddress) {
+            conversationIDA = bytes32(keccak256(abi.encodePacked(
+                deployerAddress,
+                address(appA),
+                domainsA[0],
+                blockhash(1),
+                block.number,
+                block.difficulty,
+                block.timestamp,
+                block.chainid,
+                block.coinbase,
+                convCount,
+                convSeedA,
+                convNameA
+            )));
+        }
+        else if (address(this) == deployerAddress2) {
+            conversationIDA = bytes32(keccak256(abi.encodePacked(
+                deployerAddress2,
+                address(appA),
+                domainsA[0],
+                blockhash(1),
+                block.number,
+                block.difficulty,
+                block.timestamp,
+                block.chainid,
+                block.coinbase,
+                convCount,
+                convSeedA,
+                convNameA
+            )));
+        }
 
         // Check _conversations data
         require(conversationIDA == convIDA && conversationIDA == conv_IDA, "conversationID mismatch");
@@ -70,10 +94,10 @@ contract HyperchatTest is DSTestPlus {
 
         // Check _messages data
         require(messageA.timestamp == block.timestamp, "Message: timestamp incorrect");
-        require(messageA.sender == deployerAddress, "Message: sender incorrect");
+        require(messageA.sender == deployerAddressBytes || messageA.sender == deployerAddress2Bytes, "Message: sender incorrect");
         require(messageA.conversationID == conversationIDA, "Message: conversationID incorrect");
         require(messageA.participants.length == 3, "Message: participantsA array length incorrect");
-        require(messageA.participants[0] == deployerAddress, "Message: participantsA array data incorrect");
+        require(messageA.participants[0] == deployerAddressBytes || messageA.participants[0] == deployerAddress2Bytes, "Message: participantsA array data incorrect");
         require(messageA.participants[1] == participantsA[0], "Message: participantsA array data incorrect");
         require(messageA.participants[2] == participantsA[1], "Message: participantsA array data incorrect");
         require(messageA.domainIDs.length == 2, "Message: domainIDs array length incorrect");
@@ -97,37 +121,74 @@ contract HyperchatTest is DSTestPlus {
         (uint256 msgCountA, bytes32 conv_IDA, bytes memory conv_NameA) = appA.retrieveConversation(convIDA);
         (uint256 msgCountB, bytes32 conv_IDB, bytes memory conv_NameB) = appA.retrieveConversation(convIDB);
 
+        bytes32 conversationIDA;
+        bytes32 conversationIDB;
+
         // Confirm conversationID is generated properly
         uint256 convCount = 0;
-        bytes32 conversationIDA = bytes32(keccak256(abi.encodePacked(
-            0xb4c79daB8f259C7Aee6E5b2Aa729821864227e84,
-            address(appA),
-            domainsA[0],
-            blockhash(1),
-            block.number,
-            block.difficulty,
-            block.timestamp,
-            block.chainid,
-            block.coinbase,
-            convCount,
-            convSeedA,
-            convNameA
-        )));
-        convCount += 1;
-        bytes32 conversationIDB = bytes32(keccak256(abi.encodePacked(
-            0xb4c79daB8f259C7Aee6E5b2Aa729821864227e84,
-            address(appA),
-            domainsA[0],
-            blockhash(1),
-            block.number,
-            block.difficulty,
-            block.timestamp,
-            block.chainid,
-            block.coinbase,
-            convCount,
-            convSeedA,
-            convNameA
-        )));
+        if (address(this) == deployerAddress) {
+            conversationIDA = bytes32(keccak256(abi.encodePacked(
+                deployerAddress,
+                address(appA),
+                domainsA[0],
+                blockhash(1),
+                block.number,
+                block.difficulty,
+                block.timestamp,
+                block.chainid,
+                block.coinbase,
+                convCount,
+                convSeedA,
+                convNameA
+            )));
+            convCount += 1;
+            conversationIDB = bytes32(keccak256(abi.encodePacked(
+                deployerAddress,
+                address(appA),
+                domainsA[0],
+                blockhash(1),
+                block.number,
+                block.difficulty,
+                block.timestamp,
+                block.chainid,
+                block.coinbase,
+                convCount,
+                convSeedA,
+                convNameA
+            )));
+        }
+        else if (address(this) == deployerAddress2) {
+            conversationIDA = bytes32(keccak256(abi.encodePacked(
+                deployerAddress2,
+                address(appA),
+                domainsA[0],
+                blockhash(1),
+                block.number,
+                block.difficulty,
+                block.timestamp,
+                block.chainid,
+                block.coinbase,
+                convCount,
+                convSeedA,
+                convNameA
+            )));
+            convCount += 1;
+            conversationIDB = bytes32(keccak256(abi.encodePacked(
+                deployerAddress2,
+                address(appA),
+                domainsA[0],
+                blockhash(1),
+                block.number,
+                block.difficulty,
+                block.timestamp,
+                block.chainid,
+                block.coinbase,
+                convCount,
+                convSeedA,
+                convNameA
+            )));
+        }
+        else { revert(); }
 
         // Check _conversations data
         require(conversationIDA == convIDA && conversationIDA == conv_IDA, "conversationID mismatch");
@@ -160,6 +221,7 @@ contract HyperchatTest is DSTestPlus {
 
     // Test adding valid admin approval for a conversation participant by a conversation admin
     function testLocalAddAdminApproval() public {
+        console.log(address(this));
         // Initiate a conversation
         convIDA = appA.initiateConversation(domainsA, participantsA, convSeedA, convNameA);
         // Give 0xABCD admin approval
@@ -175,13 +237,15 @@ contract HyperchatTest is DSTestPlus {
 
         // Check new _messages data
         require(messageA.timestamp == block.timestamp, "Message: timestamp incorrect");
-        require(messageA.sender == deployerAddress, "Message: sender incorrect");
+        require(messageA.sender == deployerAddressBytes || messageA.sender == deployerAddress2Bytes, "Message: sender incorrect");
         require(messageA.conversationID == convIDA, "Message: conversationID incorrect");
         require(messageA.participants.length == 1, "Message: participants array length incorrect");
         require(messageA.participants[0] == participantsA[0], "Message: participantsA array data incorrect");
         require(messageA.domainIDs.length == 0, "Message: domainIDs array length incorrect");
         require(keccak256(abi.encodePacked(messageA.message)) == 
-            keccak256(abi.encodePacked(bytes.concat("Hyperchat: ", deployerAddress, " gave admin approval for ", participantsA[0], "!"))),
+            keccak256(abi.encodePacked(bytes.concat("Hyperchat: ", deployerAddressBytes, " gave admin approval for ", participantsA[0], "!"))) || 
+            keccak256(abi.encodePacked(messageA.message)) == 
+            keccak256(abi.encodePacked(bytes.concat("Hyperchat: ", deployerAddress2Bytes, " gave admin approval for ", participantsA[0], "!"))),
             "Message: name incorrect");
         require(messageA.msgType == Hyperchat.MessageType.AddAdminApproval, "Message: type incorrect");
     }
@@ -203,7 +267,7 @@ contract HyperchatTest is DSTestPlus {
 
         // Check new _messages data
         require(messageA.timestamp == block.timestamp, "Message: timestamp incorrect");
-        require(messageA.sender == deployerAddress, "Message: sender incorrect");
+        require(messageA.sender == deployerAddressBytes || messageA.sender == deployerAddress2Bytes, "Message: sender incorrect");
         require(messageA.conversationID == convIDA, "Message: conversationID incorrect");
         require(messageA.participants.length == 1, "Message: participants array length incorrect");
         require(messageA.participants[0] == participantsA[0], "Message: participantsA array data incorrect");
@@ -283,13 +347,15 @@ contract HyperchatTest is DSTestPlus {
 
         // Check new _messages data
         require(messageA.timestamp == block.timestamp, "Message: timestamp incorrect");
-        require(messageA.sender == deployerAddress, "Message: sender incorrect");
+        require(messageA.sender == deployerAddressBytes || messageA.sender == deployerAddress2Bytes, "Message: sender incorrect");
         require(messageA.conversationID == convIDA, "Message: conversationID incorrect");
         require(messageA.participants.length == 1, "Message: participants array length incorrect");
         require(messageA.participants[0] == participantsA[0], "Message: participantsA array data incorrect");
         require(messageA.domainIDs.length == 0, "Message: domainIDs array length incorrect");
         require(keccak256(abi.encodePacked(messageA.message)) == 
-            keccak256(abi.encodePacked(bytes.concat("Hyperchat: ", deployerAddress, " revoked admin approval for ", participantsA[0], "!"))),
+            keccak256(abi.encodePacked(bytes.concat("Hyperchat: ", deployerAddressBytes, " revoked admin approval for ", participantsA[0], "!"))) ||
+            keccak256(abi.encodePacked(messageA.message)) == 
+            keccak256(abi.encodePacked(bytes.concat("Hyperchat: ", deployerAddress2Bytes, " revoked admin approval for ", participantsA[0], "!"))),
             "Message: name incorrect");
         require(messageA.msgType == Hyperchat.MessageType.RemoveAdminApproval, "Message: type incorrect");
     }
@@ -313,7 +379,7 @@ contract HyperchatTest is DSTestPlus {
 
         // Check new _messages data
         require(messageA.timestamp == block.timestamp, "Message: timestamp incorrect");
-        require(messageA.sender == deployerAddress, "Message: sender incorrect");
+        require(messageA.sender == deployerAddressBytes || messageA.sender == deployerAddress2Bytes, "Message: sender incorrect");
         require(messageA.conversationID == convIDA, "Message: conversationID incorrect");
         require(messageA.participants.length == 1, "Message: participants array length incorrect");
         require(messageA.participants[0] == participantsA[0], "Message: participantsA array data incorrect");
@@ -395,7 +461,7 @@ contract HyperchatTest is DSTestPlus {
 
         // Check _messages data
         require(messageA.timestamp == block.timestamp, "Message: timestamp incorrect");
-        require(messageA.sender == deployerAddress, "Message: sender incorrect");
+        require(messageA.sender == deployerAddressBytes || messageA.sender == deployerAddress2Bytes, "Message: sender incorrect");
         require(messageA.conversationID == convIDA, "Message: conversationID incorrect");
         require(messageA.participants.length == 1, "Message: participants array length incorrect");
         require(messageA.participants[0] == addressToBytes32(address(0xDEED)), "Message: participants array data incorrect");
@@ -505,7 +571,7 @@ contract HyperchatTest is DSTestPlus {
 
         // Check _messages data
         require(messageA.timestamp == block.timestamp, "Message: timestamp incorrect");
-        require(messageA.sender == deployerAddress, "Message: sender incorrect");
+        require(messageA.sender == deployerAddressBytes || messageA.sender == deployerAddress2Bytes, "Message: sender incorrect");
         require(messageA.conversationID == convIDA, "Message: conversationID incorrect");
         require(messageA.participants.length == 1, "Message: participants array length incorrect");
         require(messageA.participants[0] == addressToBytes32(address(0xDEED)), "Message: participants array data incorrect");
@@ -580,7 +646,13 @@ contract HyperchatTest is DSTestPlus {
         // Remove admin self from the conversation
         // Expect InvalidAdmin error as active admins cannot remove themselves
         hevm.expectRevert(Hyperchat.InvalidAdmin.selector);
-        appA.removeParticipant(convIDA, deployerAddress, bytes(""));
+        if (address(this) == deployerAddress) {
+            appA.removeParticipant(convIDA, deployerAddressBytes, bytes(""));
+        }
+        else if (address(this) == deployerAddress2) {
+            appA.removeParticipant(convIDA, deployerAddress2Bytes, bytes(""));
+        }
+        else { revert(); }
     }
 
     // Test removing a valid address from a valid conversation as a non-participant address
