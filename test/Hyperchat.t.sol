@@ -439,6 +439,14 @@ contract HyperchatTest is DSTestPlus {
     }
 
     /*//////////////////////////////////////////////////////////////
+                LOCAL ADD ADMIN TESTS
+    //////////////////////////////////////////////////////////////*/
+
+    /*//////////////////////////////////////////////////////////////
+                LOCAL REMOVE ADMIN TESTS
+    //////////////////////////////////////////////////////////////*/
+
+    /*//////////////////////////////////////////////////////////////
                 LOCAL ADD PARTICIPANT TESTS
     //////////////////////////////////////////////////////////////*/
 
@@ -678,5 +686,26 @@ contract HyperchatTest is DSTestPlus {
         convIDA = appA.initiateConversation(domainsA, participantsA, convSeedA, convNameA);
         // Send a message
         appA.generalMessage(convIDA, bytes("GeneralMessage"));
+
+        // Retrieve conversation data after InitiateConversation
+        (uint256 msgCountA,,) = appA.retrieveConversation(convIDA);
+
+        // Retrieve GeneralMessage message with retrieveMessages() function
+        Hyperchat.Message[] memory messagesA = appA.retrieveMessages(convIDA, 1, 1);
+        Hyperchat.Message memory messageA = messagesA[0];
+
+        // Check _conversations data
+        require(msgCountA == 2, "Conversation: messageCount incorrect");
+
+        // Check _messages data
+        require(messageA.timestamp == block.timestamp, "Message: timestamp incorrect");
+        require(messageA.sender == deployerAddressBytes || messageA.sender == deployerAddress2Bytes, "Message: sender incorrect");
+        require(messageA.conversationID == convIDA, "Message: conversationID incorrect");
+        require(messageA.participants.length == 0, "Message: participants array length incorrect");
+        require(messageA.domainIDs.length == 0, "Message: domainIDs array length incorrect");
+        require(keccak256(abi.encodePacked(messageA.message)) == 
+            keccak256(abi.encodePacked(bytes("GeneralMessage"))),
+            "Message: name incorrect");
+        require(messageA.msgType == Hyperchat.MessageType.GeneralMessage, "Message: type incorrect");
     }
 }

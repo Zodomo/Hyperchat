@@ -769,7 +769,7 @@ contract Hyperchat /*is Router*/ {
         Message memory message;
         message.timestamp = block.timestamp;
         message.sender = sender;
-        message.conversationID;
+        message.conversationID = _conversationID;
         message.message = _message;
         message.msgType = MessageType.GeneralMessage;
         // Convert Memory object to bytes for function call and event emission
