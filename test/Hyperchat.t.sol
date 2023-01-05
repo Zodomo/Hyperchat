@@ -680,7 +680,7 @@ contract HyperchatTest is DSTestPlus {
                 LOCAL GENERAL MESSAGE TESTS
     //////////////////////////////////////////////////////////////*/
 
-    // Test sending a general message as a valid participant to a valid conversation
+    // Test sending a general message as a valid participant and admin to a valid conversation
     function testLocalGeneralMessage() public {
         // Initiate a conversation
         convIDA = appA.initiateConversation(domainsA, participantsA, convSeedA, convNameA);
@@ -707,5 +707,52 @@ contract HyperchatTest is DSTestPlus {
             keccak256(abi.encodePacked(bytes("GeneralMessage"))),
             "Message: name incorrect");
         require(messageA.msgType == Hyperchat.MessageType.GeneralMessage, "Message: type incorrect");
+    }
+
+    // Test sending a general message as a normal valid conversation participant
+    function testLocalGeneralMessageAsParticipant() public {
+        // Initiate a conversation
+        convIDA = appA.initiateConversation(domainsA, participantsA, convSeedA, convNameA);
+        // Send a message as 0xABCD
+        hevm.startPrank(address(0xABCD));
+        appA.generalMessage(convIDA, bytes("GeneralMessage"));
+        hevm.stopPrank();
+
+        // Retrieve GeneralMessage message with retrieveMessages() function
+        Hyperchat.Message[] memory messagesA = appA.retrieveMessages(convIDA, 1, 1);
+        Hyperchat.Message memory messageA = messagesA[0];
+
+        // Check _messages data
+        require(messageA.sender == addressToBytes32(address(0xABCD)), "Message: sender incorrect");
+    }
+
+    // Test sending a message to a conversation as a non-participant
+    // Should fail with InvalidParticipant
+    function testLocalGeneralMessageAsNonParticipant() public {
+        // Initiate a conversation
+        convIDA = appA.initiateConversation(domainsA, participantsA, convSeedA, convNameA);
+        // Send a message to convIDA as 0xDEED
+        hevm.startPrank(address(0xDEED));
+        hevm.expectRevert(Hyperchat.InvalidParticipant.selector);
+        appA.generalMessage(convIDA, bytes("whoops"));
+        hevm.stopPrank();
+    }
+
+    // Test sending an empty general message as a valid participant
+    // Should fail with InvalidMessage error
+    function testLocalGeneralMessageNoMessage() public {
+        // Initiate a conversation
+        convIDA = appA.initiateConversation(domainsA, participantsA, convSeedA, convNameA);
+        // Send an empty message
+        hevm.expectRevert(Hyperchat.InvalidMessage.selector);
+        appA.generalMessage(convIDA, bytes(""));
+    }
+
+    // Test sending a general message to a conversation that doesn't exist
+    // Should fail with InvalidConversation error
+    function testLocalGeneralMessageInvalidConversation() public {
+        // Send an empty message to a conversationID that doesn't exist
+        hevm.expectRevert(Hyperchat.InvalidConversation.selector);
+        appA.generalMessage(bytes32("2"), bytes("knock knock"));
     }
 }
