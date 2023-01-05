@@ -595,4 +595,16 @@ contract HyperchatTest is DSTestPlus {
         appA.addParticipant(convIDA, addressToBytes32(address(0xABCD)), bytes(""));
         hevm.stopPrank();
     }
+
+    /*//////////////////////////////////////////////////////////////
+                LOCAL GENERAL MESSAGE TESTS
+    //////////////////////////////////////////////////////////////*/
+
+    // Test sending a general message as a valid participant to a valid conversation
+    function testLocalGeneralMessage() public {
+        // Initiate a conversation
+        convIDA = appA.initiateConversation(domainsA, participantsA, convSeedA, convNameA);
+        // Send a message
+        appA.generalMessage(convIDA, bytes("GeneralMessage"));
+    }
 }
