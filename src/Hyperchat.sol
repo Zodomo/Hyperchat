@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.17;
 
-//import "hyperlane/Router.sol";
+import "hyperlane/Router.sol";
 
 // Hyperchat is a contract that leverages the Hyperlane Messaging API to relay chat messages to users of any chain
-contract Hyperchat /*is Router*/ {
+contract Hyperchat is Router {
 
     /*//////////////////////////////////////////////////////////////////////////////////////////////////
                 EVENTS/ERRORS
@@ -819,8 +819,6 @@ contract Hyperchat /*is Router*/ {
         emit MessageSent(_conversationID, addressToBytes32(msg.sender), _message);
     }
     
-    // TODO: Uncomment function once Router.sol is inherited properly
-    /*
     // Overriding the Hyperlane Router.sol's _handle() function is how receive logic is implemented
     function _handle(
         uint32 _origin,
@@ -834,16 +832,15 @@ contract Hyperchat /*is Router*/ {
         // Retrieve sender
         bytes32 sender = message.sender;
 
-        emit MessageReceived(conversationID, sender, _message)
+        emit MessageReceived(conversationID, sender, _message);
 
         // Process Message data
         _processMessage(message);
 
         // Save message in _messages storage
-        _messages[conversationID][_conversations[conversationID].messageCount] = _message;
+        _messages[conversationID][_conversations[conversationID].messageCount] = message;
 
         // Increment conversation message count
         _conversations[conversationID].messageCount += 1;
     }
-    */
 }
