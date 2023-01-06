@@ -589,7 +589,7 @@ contract Hyperchat /*is Router*/ {
             message.message = _message;
         }
         else {
-            message.message = bytes.concat("Hyperchat: ", admin, " added ", _address, "to conversation as admin!");
+            message.message = bytes.concat("Hyperchat: ", admin, " added ", _address, " to conversation as admin!");
         }
         message.msgType = MessageType.AddAdmin;
 
@@ -645,6 +645,9 @@ contract Hyperchat /*is Router*/ {
                     _removeFromAdminArray(_conversationID, i);
                     break;
                 }
+
+                // Loop shouldn't ever overflow
+                unchecked { ++i; }
             }
 
             // Remove admin data structures
@@ -667,7 +670,7 @@ contract Hyperchat /*is Router*/ {
             message.message = _message;
         }
         else {
-            message.message = bytes.concat("Hyperchat: ", admin, " removed ", _address, "from conversation as admin!");
+            message.message = bytes.concat("Hyperchat: ", admin, " removed ", _address, " from conversation as admin!");
         }
         message.msgType = MessageType.RemoveAdmin;
 
