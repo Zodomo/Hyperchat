@@ -3,9 +3,11 @@ pragma solidity ^0.8.17;
 
 import {DSTestPlus} from "solmate/test/utils/DSTestPlus.sol";
 import "forge-std/console.sol";
+
+import "hyperlane/mock/MockHyperlaneEnvironment.sol";
 import "../src/Hyperchat.sol";
 
-contract HyperchatTest is DSTestPlus {
+contract HyperchatLocalTests is DSTestPlus {
 
     /*//////////////////////////////////////////////////////////////
                 SETUP
@@ -21,19 +23,34 @@ contract HyperchatTest is DSTestPlus {
         return bytes32(uint256(uint160(_address)));
     }
 
+    MockHyperlaneEnvironment testEnv;
+
     Hyperchat appA;
+    Hyperchat appB;
     uint32[] domainsA = [1,2];
-    uint32[] domainsB = [2,1];
     bytes32[] participantsA = [addressToBytes32(address(0xABCD)), addressToBytes32(address(0xBEEF))];
-    bytes32[] participantsB = [addressToBytes32(address(0xBEEF)), addressToBytes32(address(0xABCD))];
     bytes convSeedA = bytes("I <3 EVM!");
     bytes convNameA = bytes("Hello World");
     bytes32 convIDA;
     bytes32 convIDB;
     
     function setUp() public {
-        appA = new Hyperchat(1);
+        // Required/Minimal Hyperlane Setup
+        // Remember, only local tests are being executed
+        testEnv = new MockHyperlaneEnvironment(1,2);
+        address mailboxA = address(testEnv.mailboxes(1));
+        address mailboxB = address(testEnv.mailboxes(2));
+
+        // Hyperchat and Hyperlane Router Setup
+        appA = new Hyperchat(1, mailboxA);
+        appB = new Hyperchat(2, mailboxB);
+        appA.enrollRemoteRouter(2, addressToBytes32(address(appB)));
+        appB.enrollRemoteRouter(1, addressToBytes32(address(appA)));
     }
+
+    /*//////////////////////////////////////////////////////////////////////////////////////////////////
+                LOCAL DATA STRUCTURES AND FUNCTION DOMAIN LOGIC TESTING
+    //////////////////////////////////////////////////////////////////////////////////////////////////*/
 
     /*//////////////////////////////////////////////////////////////
                 LOCAL INITIATE CONVERSATION TESTS

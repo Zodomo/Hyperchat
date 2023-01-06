@@ -103,9 +103,17 @@ contract Hyperchat is Router {
                 CONSTRUCTOR
     //////////////////////////////////////////////////////////////////////////////////////////////////*/
 
-    constructor(uint32 _hyperlaneDomainID) payable {        
-        // Set to Hyperlane Domain Identifier of Station chain
+    // Initializer function from use of OpenZeppelin OwnableUpgradable required for Hyperlane Router setup
+    function _initialize(address _mailbox) internal initializer {
+        // Initialize Hyperlane Router with local _mailbox address
+        __Router_initialize(_mailbox);
+    }
+
+    constructor(uint32 _hyperlaneDomainID, address _mailbox) payable {        
+        // Set to Hyperlane Domain Identifier of local chain
         HYPERLANE_DOMAIN_IDENTIFIER = _hyperlaneDomainID;
+
+        _initialize(_mailbox);
     }
 
     /*//////////////////////////////////////////////////////////////////////////////////////////////////
@@ -806,8 +814,7 @@ contract Hyperchat is Router {
                 continue;
             }
 
-            // TODO: Dispatch message via Hyperlane to Hyperchat instance on domainID
-            //_dispatch(domainID, _message);
+            _dispatch(domainID, _message);
             
             // Shouldn't overflow
             unchecked { ++i; }
