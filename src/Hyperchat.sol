@@ -190,8 +190,11 @@ contract Hyperchat is Router {
         bytes32 conversationID = _message.conversationID;
         // Retrieve sender
         bytes32 sender = _message.sender;
-        // Retrieve admin candidate address
-        bytes32 candidate = _message.participants[0];
+        // Retrieve candidate address if one exists (GeneralMessage doesn't include one)
+        bytes32 candidate;
+        if (_message.participants.length > 0) {
+            candidate = _message.participants[0];
+        }
         // Retrieve MessageType
         MessageType msgType = _message.msgType;
 
@@ -230,6 +233,9 @@ contract Hyperchat is Router {
                     _removeFromAdminArray(conversationID, i);
                     break;
                 }
+
+                // Shouldn't overflow
+                unchecked { ++i; }
             }
 
             // Remove admin data structures
@@ -252,7 +258,7 @@ contract Hyperchat is Router {
         }
         else if (msgType == MessageType.GeneralMessage) {
             // No logic for general messages beyond being stored in _handle()'s logic
-            emit GeneralMessage(conversationID, sender, abi.encode(_message));
+            emit GeneralMessage(conversationID, sender, _message.message);
         }
         else {
             revert InvalidType();
@@ -779,12 +785,10 @@ contract Hyperchat is Router {
         message.conversationID = _conversationID;
         message.message = _message;
         message.msgType = MessageType.GeneralMessage;
-        // Convert Memory object to bytes for function call and event emission
-        bytes memory envelope = abi.encode(message);
 
-        sendMessage(_conversationID, envelope);
+        sendMessage(_conversationID, abi.encode(message));
 
-        emit GeneralMessage(_conversationID, sender, envelope);
+        emit GeneralMessage(_conversationID, sender, _message);
     }
 
     /*//////////////////////////////////////////////////////////////////////////////////////////////////
