@@ -103,17 +103,11 @@ contract Hyperchat is Router {
                 CONSTRUCTOR
     //////////////////////////////////////////////////////////////////////////////////////////////////*/
 
-    // Initializer function from use of OpenZeppelin OwnableUpgradable required for Hyperlane Router setup
-    function _initialize(address _mailbox) internal initializer {
-        // Initialize Hyperlane Router with local _mailbox address
-        __Router_initialize(_mailbox);
-    }
-
-    constructor(uint32 _hyperlaneDomainID, address _mailbox) payable {        
+    constructor(uint32 _hyperlaneDomainID, address _mailbox) payable initializer {        
         // Set to Hyperlane Domain Identifier of local chain
         HYPERLANE_DOMAIN_IDENTIFIER = _hyperlaneDomainID;
 
-        _initialize(_mailbox);
+        __Router_initialize(_mailbox);
     }
 
     /*//////////////////////////////////////////////////////////////////////////////////////////////////
@@ -385,7 +379,7 @@ contract Hyperchat is Router {
         
         // Set conversation name
         if (_name.length > 0) {
-            _conversations[conversationID].name = message.message = bytes.concat("Hyperlane: ", admin, " initiated ", _name, "!");
+            _conversations[conversationID].name = message.message = _name;
         } else {
             _conversations[conversationID].name = message.message = bytes.concat("Hyperlane: ", admin, " initiated ", conversationID, "!");
         }

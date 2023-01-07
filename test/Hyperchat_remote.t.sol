@@ -7,7 +7,7 @@ import "forge-std/console.sol";
 import "hyperlane/mock/MockHyperlaneEnvironment.sol";
 import "../src/Hyperchat.sol";
 
-contract HyperchatRouterTests is DSTestPlus {
+contract HyperchatRemoteTests is DSTestPlus {
 
     /*//////////////////////////////////////////////////////////////
                 SETUP
@@ -45,5 +45,11 @@ contract HyperchatRouterTests is DSTestPlus {
         appB = new Hyperchat(2, mailboxB);
         appA.enrollRemoteRouter(2, addressToBytes32(address(appB)));
         appB.enrollRemoteRouter(1, addressToBytes32(address(appA)));
+    }
+
+    function testRemoteInitiateConversation() public {
+        // Initiate a conversation
+        convIDA = appA.initiateConversation(domainsA, participantsA, convSeedA, convNameA);
+        testEnv.processNextPendingMessage();
     }
 }

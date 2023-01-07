@@ -107,7 +107,7 @@ contract HyperchatLocalTests is DSTestPlus {
         require(conversationIDA == convIDA && conversationIDA == conv_IDA, "conversationID mismatch");
         require(appA.conversationCount() == 1, "Conversation: conversationCount incorrect");
         require(msgCountA == 1, "Conversation: messageCount incorrect");
-        // TODO: require(keccak256(abi.encodePacked(conv_NameA)) == keccak256(abi.encodePacked(bytes("Hello World"))) , "Conversation: name incorrect");
+        require(keccak256(abi.encodePacked(conv_NameA)) == keccak256(abi.encodePacked(bytes("Hello World"))) , "Conversation: name incorrect");
 
         // Check _messages data
         require(messageA.timestamp == block.timestamp, "Message: timestamp incorrect");
@@ -120,7 +120,7 @@ contract HyperchatLocalTests is DSTestPlus {
         require(messageA.domainIDs.length == 2, "Message: domainIDs array length incorrect");
         require(messageA.domainIDs[0] == domainsA[0], "Message: domainIDs array data incorrect");
         require(messageA.domainIDs[1] == domainsA[1], "Message: domainIDs array data incorrect");
-        // TODO: require(keccak256(abi.encodePacked(messageA.message)) == keccak256(abi.encodePacked(convNameA)) , "Message: name incorrect");
+        require(keccak256(abi.encodePacked(messageA.message)) == keccak256(abi.encodePacked(convNameA)) , "Message: name incorrect");
         require(messageA.msgType == Hyperchat.MessageType.InitiateConversation, "Message: type incorrect");
     }
 
@@ -208,13 +208,14 @@ contract HyperchatLocalTests is DSTestPlus {
         else { revert(); }
 
         // Check _conversations data
-        require(conversationIDA == convIDA && conversationIDA == conv_IDA, "conversationID mismatch");
-        require(conversationIDB == convIDB && conversationIDB == conv_IDB, "conversationID mismatch");
+        require(conversationIDA == convIDA, "conversationID mismatch");
+        require(conversationIDB == convIDB, "conversationID mismatch");
         require(conversationIDA != conversationIDB && convIDA != convIDB && conv_IDA != conv_IDB, "conversationID collision");
         require(appA.conversationCount() == 2, "Conversation: conversationCount incorrect");
         require(msgCountA == msgCountB, "Conversation: messageCount incorrect");
-        // TODO: require(keccak256(abi.encodePacked(conv_NameA)) == keccak256(abi.encodePacked(bytes("Hello World"))) , "Conversation: name incorrect");
-        // TODO: duplicate name check
+        require(keccak256(abi.encodePacked(conv_NameA)) == keccak256(abi.encodePacked(bytes("Hello World"))) , "Conversation: name incorrect");
+        require(keccak256(abi.encodePacked(conv_NameB)) == keccak256(abi.encodePacked(bytes("Hello World"))) , "Conversation: name incorrect");
+        require(keccak256(abi.encodePacked(conv_NameA)) == keccak256(abi.encodePacked(conv_NameB)), "Conversation: name mismatch");
 
         // Check _messages data
         require(messageA.timestamp == messageB.timestamp, "Message: timestamp incorrect");
@@ -227,8 +228,9 @@ contract HyperchatLocalTests is DSTestPlus {
         require(messageA.domainIDs.length == messageA.domainIDs.length, "Message: domainIDs array length incorrect");
         require(messageA.domainIDs[0] == messageB.domainIDs[0], "Message: domainIDs array data incorrect");
         require(messageA.domainIDs[1] == messageB.domainIDs[1], "Message: domainIDs array data incorrect");
-        // TODO: require(keccak256(abi.encodePacked(messageA.message)) == keccak256(abi.encodePacked(convNameA)) , "Message: name incorrect");
-        // TODO: duplicate message check
+        require(keccak256(abi.encodePacked(messageA.message)) == keccak256(abi.encodePacked(conv_NameA)) , "Message: name incorrect");
+        require(keccak256(abi.encodePacked(messageB.message)) == keccak256(abi.encodePacked(conv_NameB)) , "Message: name incorrect");
+        require(keccak256(abi.encodePacked(messageA.message)) == keccak256(abi.encodePacked(messageB.message)), "Message: message mismatch");
         require(messageA.msgType == messageB.msgType, "Message: type incorrect");
     }
 
