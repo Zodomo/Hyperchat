@@ -103,11 +103,15 @@ contract Hyperchat is Router {
                 CONSTRUCTOR
     //////////////////////////////////////////////////////////////////////////////////////////////////*/
 
-    constructor(uint32 _hyperlaneDomainID, address _mailbox) payable initializer {        
+    constructor(
+        uint32 _hyperlaneDomainID,
+        address _mailbox,
+        address _hyperlaneIGP
+    ) payable initializer {        
         // Set to Hyperlane Domain Identifier of local chain
         HYPERLANE_DOMAIN_IDENTIFIER = _hyperlaneDomainID;
 
-        __Router_initialize(_mailbox);
+        __Router_initialize(_mailbox, _hyperlaneIGP);
     }
 
     /*//////////////////////////////////////////////////////////////////////////////////////////////////
@@ -279,7 +283,7 @@ contract Hyperchat is Router {
         bytes32[] memory _participants,
         bytes memory _seed,
         bytes memory _name
-    ) public returns (bytes32 conversationID) {
+    ) public payable returns (bytes32 conversationID) {
         // Calculate conversationID
         // Extremely packed to prevent any chance of MEV abuse or collision
         conversationID = bytes32(keccak256(abi.encodePacked(
@@ -395,7 +399,7 @@ contract Hyperchat is Router {
 
         emit ConversationCreated(conversationID, admin, _name);
         
-        sendMessage(conversationID, abi.encode(message));
+        _sendMessage(conversationID, abi.encode(message));
         
         return conversationID;
     }
@@ -451,7 +455,7 @@ contract Hyperchat is Router {
         bytes32 _conversationID,
         bytes32 _address,
         bytes memory _message
-    ) public onlyAdmin(_conversationID) {
+    ) public payable onlyAdmin(_conversationID) {
         // Revert if _address isnt a member
         if (!_conversations[_conversationID].allowlist[_address]) {
             revert InvalidParticipant();
@@ -482,7 +486,7 @@ contract Hyperchat is Router {
         }
         message.msgType = MessageType.AddAdminApproval;
         
-        sendMessage(_conversationID, abi.encode(message));
+        _sendMessage(_conversationID, abi.encode(message));
 
         emit AdminApprovalAdded(_conversationID, admin, _address);
     }
@@ -493,7 +497,7 @@ contract Hyperchat is Router {
         bytes32 _conversationID,
         bytes32 _address,
         bytes memory _message
-    ) public onlyAdmin(_conversationID) {
+    ) public payable onlyAdmin(_conversationID) {
         // Revert if _address isnt a member
         if (!_conversations[_conversationID].allowlist[_address]) {
             revert InvalidParticipant();
@@ -524,7 +528,7 @@ contract Hyperchat is Router {
         }
         message.msgType = MessageType.RemoveAdminApproval;
 
-        sendMessage(_conversationID, abi.encode(message));
+        _sendMessage(_conversationID, abi.encode(message));
 
         emit AdminApprovalRemoved(_conversationID, admin, _address);
     }
@@ -538,7 +542,7 @@ contract Hyperchat is Router {
         bytes32 _conversationID,
         bytes32 _address,
         bytes memory _message
-    ) public onlyAdmin(_conversationID) {
+    ) public payable onlyAdmin(_conversationID) {
         // Revert if _address isnt a member
         if (!_conversations[_conversationID].allowlist[_address]) {
             revert InvalidParticipant();
@@ -601,7 +605,7 @@ contract Hyperchat is Router {
         }
         message.msgType = MessageType.AddAdmin;
 
-        sendMessage(_conversationID, abi.encode(message));
+        _sendMessage(_conversationID, abi.encode(message));
     }
 
     // Remove an addresss conversation admin rights
@@ -609,7 +613,7 @@ contract Hyperchat is Router {
         bytes32 _conversationID,
         bytes32 _address,
         bytes memory _message
-    ) public onlyAdmin(_conversationID) {
+    ) public payable onlyAdmin(_conversationID) {
         // Revert if _address isnt a member
         if (!_conversations[_conversationID].allowlist[_address]) {
             revert InvalidParticipant();
@@ -682,7 +686,7 @@ contract Hyperchat is Router {
         }
         message.msgType = MessageType.RemoveAdmin;
 
-        sendMessage(_conversationID, abi.encode(message));
+        _sendMessage(_conversationID, abi.encode(message));
     }
 
     /*//////////////////////////////////////////////////////////////////////////////
@@ -694,7 +698,7 @@ contract Hyperchat is Router {
         bytes32 _conversationID,
         bytes32 _address,
         bytes memory _message
-    ) public onlyAdmin(_conversationID) {
+    ) public payable onlyAdmin(_conversationID) {
         // Add if not present, else revert
         if (!_conversations[_conversationID].allowlist[_address]) {
             _conversations[_conversationID].allowlist[_address] = true;
@@ -720,7 +724,7 @@ contract Hyperchat is Router {
         }
         message.msgType = MessageType.AddParticipant;
 
-        sendMessage(_conversationID, abi.encode(message));
+        _sendMessage(_conversationID, abi.encode(message));
 
         emit ParticipantAdded(_conversationID, admin, _address);
     }
@@ -730,7 +734,7 @@ contract Hyperchat is Router {
         bytes32 _conversationID,
         bytes32 _address,
         bytes memory _message
-    ) public onlyAdmin(_conversationID) {
+    ) public payable onlyAdmin(_conversationID) {
         // Remove if present and non-admin, else revert
         if (!_conversations[_conversationID].allowlist[_address]) {
             revert InvalidParticipant();
@@ -760,7 +764,7 @@ contract Hyperchat is Router {
         }
         message.msgType = MessageType.RemoveParticipant;
 
-        sendMessage(_conversationID, abi.encode(message));
+        _sendMessage(_conversationID, abi.encode(message));
 
         emit ParticipantRemoved(_conversationID, admin, _address);
     }
@@ -770,7 +774,7 @@ contract Hyperchat is Router {
     //////////////////////////////////////////////////////////////////////////////*/
 
     // Send general message
-    function generalMessage(bytes32 _conversationID, bytes memory _message) public onlyMember(_conversationID) {
+    function generalMessage(bytes32 _conversationID, bytes memory _message) public payable onlyMember(_conversationID) {
         // Revert if _message is zero bytes
         if (_message.length == 0) {
             revert InvalidMessage();
@@ -786,7 +790,7 @@ contract Hyperchat is Router {
         message.message = _message;
         message.msgType = MessageType.GeneralMessage;
 
-        sendMessage(_conversationID, abi.encode(message));
+        _sendMessage(_conversationID, abi.encode(message));
 
         emit GeneralMessage(_conversationID, sender, _message);
     }
@@ -797,7 +801,7 @@ contract Hyperchat is Router {
 
     // Send message of any type to conversation
     // Message will be broadcast to all domainIDs in conversation metadata
-    function sendMessage(bytes32 _conversationID, bytes memory _message) internal onlyMember(_conversationID) {
+    function _sendMessage(bytes32 _conversationID, bytes memory _message) internal onlyMember(_conversationID) {
         // Iterate sending via hyperlane to each domainID
         for (uint i; i < _conversations[_conversationID].domainIDs.length;) {
             // Retrieve domainID at index i
@@ -812,7 +816,7 @@ contract Hyperchat is Router {
                 continue;
             }
 
-            _dispatch(domainID, _message);
+            _dispatchWithGas(domainID, _message, 100000 gwei, 100000 gwei, msg.sender);
             
             // Shouldn't overflow
             unchecked { ++i; }

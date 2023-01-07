@@ -39,12 +39,19 @@ contract HyperchatRemoteTests is DSTestPlus {
         testEnv = new MockHyperlaneEnvironment(1,2);
         address mailboxA = address(testEnv.mailboxes(1));
         address mailboxB = address(testEnv.mailboxes(2));
+        address igpA = address(testEnv.igps(1));
+        address igpB = address(testEnv.igps(2));
 
         // Hyperchat and Hyperlane Router Setup
-        appA = new Hyperchat(1, mailboxA);
-        appB = new Hyperchat(2, mailboxB);
+        appA = new Hyperchat(1, mailboxA, igpA);
+        appB = new Hyperchat(2, mailboxB, igpB);
         appA.enrollRemoteRouter(2, addressToBytes32(address(appB)));
         appB.enrollRemoteRouter(1, addressToBytes32(address(appA)));
+
+        // Test user setup
+        hevm.deal(address(0xABCD), 100 ether);
+        hevm.deal(address(0xBEEF), 100 ether);
+        hevm.deal(address(0xDEED), 100 ether);
     }
 
     /*//////////////////////////////////////////////////////////////////////////////////////////////////
@@ -57,7 +64,7 @@ contract HyperchatRemoteTests is DSTestPlus {
 
     function testRemoteInitiateConversation() public {
         // Initiate a conversation
-        convIDA = appA.initiateConversation(domainsA, participantsA, convSeedA, convNameA);
+        convIDA = appA.initiateConversation{ value: 100000 gwei }(domainsA, participantsA, convSeedA, convNameA);
         // Emulate Hyperlane data bridging
         testEnv.processNextPendingMessage();
 
@@ -96,9 +103,9 @@ contract HyperchatRemoteTests is DSTestPlus {
 
     function testRemoteAddAdminApproval() public {
         // Initiate a conversation
-        convIDA = appA.initiateConversation(domainsA, participantsA, convSeedA, convNameA);
+        convIDA = appA.initiateConversation{ value: 100000 gwei }(domainsA, participantsA, convSeedA, convNameA);
         // Give 0xABCD admin approval
-        appA.addAdminApproval(convIDA, participantsA[0], bytes(""));
+        appA.addAdminApproval{ value: 100000 gwei }(convIDA, participantsA[0], bytes(""));
 
         // Emulate Hyperlane data bridging
         testEnv.processNextPendingMessage();
@@ -129,11 +136,11 @@ contract HyperchatRemoteTests is DSTestPlus {
 
     function testRemoteRemoveAdminApproval() public {
         // Initiate a conversation
-        convIDA = appA.initiateConversation(domainsA, participantsA, convSeedA, convNameA);
+        convIDA = appA.initiateConversation{ value: 100000 gwei }(domainsA, participantsA, convSeedA, convNameA);
         // Give 0xABCD admin approval
-        appA.addAdminApproval(convIDA, participantsA[0], bytes(""));
+        appA.addAdminApproval{ value: 100000 gwei }(convIDA, participantsA[0], bytes(""));
         // Remove 0xABCD admin approval
-        appA.removeAdminApproval(convIDA, participantsA[0], bytes(""));
+        appA.removeAdminApproval{ value: 100000 gwei }(convIDA, participantsA[0], bytes(""));
 
         // Emulate Hyperlane data bridging
         testEnv.processNextPendingMessage();
@@ -169,11 +176,11 @@ contract HyperchatRemoteTests is DSTestPlus {
 
     function testRemoteAddAdmin() public {
         // Initiate a conversation
-        convIDA = appA.initiateConversation(domainsA, participantsA, convSeedA, convNameA);
+        convIDA = appA.initiateConversation{ value: 100000 gwei }(domainsA, participantsA, convSeedA, convNameA);
         // Give 0xABCD admin approval
-        appA.addAdminApproval(convIDA, participantsA[0], bytes(""));
+        appA.addAdminApproval{ value: 100000 gwei }(convIDA, participantsA[0], bytes(""));
         // Make 0xABCD an admin as deployer of a new conversation is the entire voting/admin pool
-        appA.addAdmin(convIDA, participantsA[0], bytes(""));
+        appA.addAdmin{ value: 100000 gwei }(convIDA, participantsA[0], bytes(""));
 
         // Emulate Hyperlane data bridging
         testEnv.processNextPendingMessage();
@@ -205,15 +212,15 @@ contract HyperchatRemoteTests is DSTestPlus {
 
     function testRemoteRemoveAdmin() public {
         // Initiate a conversation
-        convIDA = appA.initiateConversation(domainsA, participantsA, convSeedA, convNameA);
+        convIDA = appA.initiateConversation{ value: 100000 gwei }(domainsA, participantsA, convSeedA, convNameA);
         // Give 0xABCD admin approval
-        appA.addAdminApproval(convIDA, participantsA[0], bytes(""));
+        appA.addAdminApproval{ value: 100000 gwei }(convIDA, participantsA[0], bytes(""));
         // Make 0xABCD an admin as deployer of a new conversation is the entire voting/admin pool
-        appA.addAdmin(convIDA, participantsA[0], bytes(""));
+        appA.addAdmin{ value: 100000 gwei }(convIDA, participantsA[0], bytes(""));
         // Remove deployer's 0xABCD admin approval
-        appA.removeAdminApproval(convIDA, participantsA[0], bytes(""));
+        appA.removeAdminApproval{ value: 100000 gwei }(convIDA, participantsA[0], bytes(""));
         // Remove 0xABCD's admin rights
-        appA.removeAdmin(convIDA, participantsA[0], bytes(""));
+        appA.removeAdmin{ value: 100000 gwei }(convIDA, participantsA[0], bytes(""));
 
         // Emulate Hyperlane data bridging
         testEnv.processNextPendingMessage();
@@ -251,9 +258,9 @@ contract HyperchatRemoteTests is DSTestPlus {
 
     function testRemoteAddParticipant() public {
         // Initiate a conversation
-        convIDA = appA.initiateConversation(domainsA, participantsA, convSeedA, convNameA);
+        convIDA = appA.initiateConversation{ value: 100000 gwei }(domainsA, participantsA, convSeedA, convNameA);
         // Add 0xDEED to the conversation
-        appA.addParticipant(convIDA, addressToBytes32(address(0xDEED)), bytes(""));
+        appA.addParticipant{ value: 100000 gwei }(convIDA, addressToBytes32(address(0xDEED)), bytes(""));
 
         // Emulate Hyperlane data bridging
         testEnv.processNextPendingMessage();
@@ -284,11 +291,11 @@ contract HyperchatRemoteTests is DSTestPlus {
 
     function testRemoteRemoveParticipant() public {
         // Initiate a conversation
-        convIDA = appA.initiateConversation(domainsA, participantsA, convSeedA, convNameA);
+        convIDA = appA.initiateConversation{ value: 100000 gwei }(domainsA, participantsA, convSeedA, convNameA);
         // Add 0xDEED to the conversation
-        appA.addParticipant(convIDA, addressToBytes32(address(0xDEED)), bytes(""));
+        appA.addParticipant{ value: 100000 gwei }(convIDA, addressToBytes32(address(0xDEED)), bytes(""));
         // Remove 0xDEED from the conversation
-        appA.removeParticipant(convIDA, addressToBytes32(address(0xDEED)), bytes(""));
+        appA.removeParticipant{ value: 100000 gwei }(convIDA, addressToBytes32(address(0xDEED)), bytes(""));
 
         // Emulate Hyperlane data bridging
         testEnv.processNextPendingMessage();
@@ -324,9 +331,9 @@ contract HyperchatRemoteTests is DSTestPlus {
 
     function testRemoteGeneralMessage() public {
         // Initiate a conversation
-        convIDA = appA.initiateConversation(domainsA, participantsA, convSeedA, convNameA);
+        convIDA = appA.initiateConversation{ value: 100000 gwei }(domainsA, participantsA, convSeedA, convNameA);
         // Send a message
-        appA.generalMessage(convIDA, bytes("GeneralMessage"));
+        appA.generalMessage{ value: 100000 gwei }(convIDA, bytes("GeneralMessage"));
 
         // Emulate Hyperlane data bridging
         testEnv.processNextPendingMessage();
