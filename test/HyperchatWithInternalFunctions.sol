@@ -20,6 +20,9 @@ contract HyperchatWithInternalFunctions is Hyperchat {
     }
 
     function sendMessage(bytes32 _conversationID, bytes memory _message) public payable {
+        // Require msg.value == 100000 gwei for current InterchainGasPaymaster integration until on-chain gas estimation is implemented
+        require(msg.value >= 100000 gwei, "Not enough gas for Hyperlane InterchainGasPaymaster");
+        
         _sendMessage(_conversationID, _message);
     }
 
