@@ -5,7 +5,7 @@ import {DSTestPlus} from "solmate/test/utils/DSTestPlus.sol";
 import "forge-std/console.sol";
 
 import "hyperlane/mock/MockHyperlaneEnvironment.sol";
-import "../src/Hyperchat.sol";
+import "./HyperchatWithInternalFunctions.sol";
 
 contract HyperchatLocalTests is DSTestPlus {
 
@@ -25,10 +25,11 @@ contract HyperchatLocalTests is DSTestPlus {
 
     MockHyperlaneEnvironment testEnv;
 
-    Hyperchat appA;
-    Hyperchat appB;
+    HyperchatWithInternalFunctions appA;
+    HyperchatWithInternalFunctions appB;
     uint32[] domainsA = [1,2];
     bytes32[] participantsA = [addressToBytes32(address(0xABCD)), addressToBytes32(address(0xBEEF))];
+    bytes32[] participantsExtended = [addressToBytes32(address(0xABCD)), addressToBytes32(address(this)), addressToBytes32(address(0xBEEF))];
     bytes convSeedA = bytes("I <3 EVM!");
     bytes convNameA = bytes("Hello World");
     bytes32 convIDA;
@@ -44,8 +45,8 @@ contract HyperchatLocalTests is DSTestPlus {
         address igpB = address(testEnv.igps(2));
 
         // Hyperchat and Hyperlane Router Setup
-        appA = new Hyperchat(1, mailboxA, igpA);
-        appB = new Hyperchat(2, mailboxB, igpB);
+        appA = new HyperchatWithInternalFunctions(1, mailboxA, igpA);
+        appB = new HyperchatWithInternalFunctions(2, mailboxB, igpB);
         appA.enrollRemoteRouter(2, addressToBytes32(address(appB)));
         appB.enrollRemoteRouter(1, addressToBytes32(address(appA)));
 
@@ -63,7 +64,7 @@ contract HyperchatLocalTests is DSTestPlus {
                 LOCAL INITIATE CONVERSATION TESTS
     //////////////////////////////////////////////////////////////*/
 
-    // Test one function call to initiateConversation()
+    // Test initiating a valid conversation with all data fields populated
     function testLocalInitiateConversation() public {
         // Initiate a conversation
         convIDA = appA.initiateConversation{ value: 100000 gwei }(domainsA, participantsA, convSeedA, convNameA);
@@ -131,7 +132,7 @@ contract HyperchatLocalTests is DSTestPlus {
         require(messageA.msgType == Hyperchat.MessageType.InitiateConversation, "Message: type incorrect");
     }
 
-    // Test two function calls to initiateConversation with the same exact data
+    // Test initiating two conversations with the same exact set of data
     function testLocalInitiateConversationsDuplicateData() public {
         // Initiate two conversations with the same data
         convIDA = appA.initiateConversation{ value: 100000 gwei }(domainsA, participantsA, convSeedA, convNameA);
@@ -239,6 +240,51 @@ contract HyperchatLocalTests is DSTestPlus {
         require(keccak256(abi.encodePacked(messageB.message)) == keccak256(abi.encodePacked(conv_NameB)) , "Message: name incorrect");
         require(keccak256(abi.encodePacked(messageA.message)) == keccak256(abi.encodePacked(messageB.message)), "Message: message mismatch");
         require(messageA.msgType == messageB.msgType, "Message: type incorrect");
+    }
+
+    // Test initiating a conversation without the name field populated
+    function testInitiateConversationWithoutName() public {
+        // Initiate conversation without name
+        convIDA = appA.initiateConversation{ value: 100000 gwei }(domainsA, participantsA, convSeedA, bytes(""));
+
+        // Retrieve InitiateConversation message with retrieveMessages() function
+        Hyperchat.Message[] memory messagesA = appA.retrieveMessages(convIDA, 0, 0);
+        Hyperchat.Message memory messageA = messagesA[0];
+
+        // Check message data for default message
+        require(keccak256(abi.encodePacked(messageA.message)) == 
+            keccak256(abi.encodePacked(bytes.concat("Hyperlane: ", addressToBytes32(address(this)), " initiated ", convIDA, "!"))));
+    }
+
+    // Test initiating a conversation with the initiator address in the participant array
+    function testInitiateConversationInitiatorAddressInParticipantArray() public {
+        // Initiate conversation
+        convIDA = appA.initiateConversation{ value: 100000 gwei }(domainsA, participantsExtended, convSeedA, convNameA);
+
+        // Retrieve InitiateConversation message with retrieveMessages() function
+        Hyperchat.Message[] memory messagesA = appA.retrieveMessages(convIDA, 0, 0);
+        Hyperchat.Message memory messageA = messagesA[0];
+
+        // Check message data
+        require(messageA.participants.length == participantsExtended.length, "Message: participants array length incorrect");
+        require(messageA.participants[0] == addressToBytes32(address(this)), "Message: participants array data incorrect");
+        require(messageA.participants[1] == addressToBytes32(address(0xABCD)), "Message: participants array data incorrect");
+        require(messageA.participants[2] == addressToBytes32(address(0xBEEF)), "Message: participants array data incorrect");
+    }
+
+    // Test initializing a conversation with a forced duplicate conversation ID
+    // Should fail with InvalidConversation error
+    function testInitiateConversationForceDuplicateConversationID() public {
+        // Initiate conversation
+        convIDA = appA.initiateConversation{ value: 100000 gwei }(domainsA, participantsExtended, convSeedA, convNameA);
+
+        // Spoof conversationCount as it is used in conversation ID generation
+        appA.decrementConversationCount(1);
+
+        // Attempt to initiate a conversation with a conversation ID that already exists
+        // Expect InvalidConversation error due to ID conflict
+        hevm.expectRevert(Hyperchat.InvalidConversation.selector);
+        convIDB = appA.initiateConversation{ value: 100000 gwei }(domainsA, participantsExtended, convSeedA, convNameA);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -636,6 +682,17 @@ contract HyperchatLocalTests is DSTestPlus {
         appA.addAdmin{ value: 100000 gwei }(bytes32("2"), addressToBytes32(address(0xDEED)), bytes("I think I'm lost..."));
     }
 
+    // Test promoting an invalid participant address to admin in a valid conversation as admin
+    // Should fail with InvalidParticipant error
+    function testLocalAddAdminInvalidParticipant() public {
+        // Initiate a conversation
+        convIDA = appA.initiateConversation{ value: 100000 gwei }(domainsA, participantsA, convSeedA, convNameA);
+
+        // Attempt to add a non-participant address to the conversation as admin
+        hevm.expectRevert(Hyperchat.InvalidParticipant.selector);
+        appA.addAdmin{ value: 100000 gwei }(convIDA, addressToBytes32(address(0xDEED)), bytes(""));
+    }
+
     /*//////////////////////////////////////////////////////////////
                 LOCAL REMOVE ADMIN TESTS
     //////////////////////////////////////////////////////////////*/
@@ -811,6 +868,28 @@ contract HyperchatLocalTests is DSTestPlus {
     function testLocalRemoveAdminInvalidConversation() public {
         hevm.expectRevert(Hyperchat.InvalidConversation.selector);
         appA.removeAdmin{ value: 100000 gwei }(bytes32("2"), participantsA[0], bytes("man I hate that dude"));
+    }
+
+    // Test removing an invalid participant address as admin from a valid conversation as a valid admin
+    // Should fail with InvalidParticipant error
+    function testLocalRemoveAdminInvalidParticipant() public {
+        // Initiate a conversation
+        convIDA = appA.initiateConversation{ value: 100000 gwei }(domainsA, participantsA, convSeedA, convNameA);
+        
+        // Attempt to remove an invalid participant address as admin
+        hevm.expectRevert(Hyperchat.InvalidParticipant.selector);
+        appA.removeAdmin{ value: 100000 gwei }(convIDA, addressToBytes32(address(0xDEED)), bytes("i just hate this dude"));
+    }
+
+    // Test removing self as final admin in a valid conversation
+    // Should fail with InvalidAdmin error
+    function testLocalRemoveAdminSelfAsLastAdmin() public {
+        // Initiate a conversation
+        convIDA = appA.initiateConversation{ value: 100000 gwei }(domainsA, participantsA, convSeedA, convNameA);
+        
+        // Attempt to remove self from conversation as the last admin
+        hevm.expectRevert(Hyperchat.InvalidAdmin.selector);
+        appA.removeAdmin{ value: 100000 gwei }(convIDA, addressToBytes32(address(this)), bytes("how do I exit vim"));
     }
 
     /*//////////////////////////////////////////////////////////////

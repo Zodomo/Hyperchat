@@ -25,7 +25,7 @@ contract Hyperchat is Router {
     error InvalidParticipant();
     error InvalidApprovals();
     error InvalidMessage();
-    error InvalidLength();
+    error InvalidIndex();
     error InvalidAdmin();
     error InvalidType();
 
@@ -141,6 +141,9 @@ contract Hyperchat is Router {
     ) public view returns (Message[] memory) {
         // Ensure finalMessage index isn't below initialMessage index
         require(initialMessage <= finalMessage, "Hyperchat::retrieveMessages::INVALID_RANGE");
+        // Block index > msgCount - 1
+        require(initialMessage <= _conversations[_conversationID].messageCount - 1, "Hyperchat::retrieveMessages::OUT_OF_BOUNDS");
+        require(finalMessage <= _conversations[_conversationID].messageCount - 1, "Hyperchat::retrieveMessages::OUT_OF_BOUNDS");
 
         // Determine messages array size
         uint256 range = finalMessage - initialMessage + 1;
@@ -176,7 +179,7 @@ contract Hyperchat is Router {
         // Revert if index out of bounds
         uint256 length = _conversations[_conversationID].admins.length;
         if (_index >= length) {
-            revert InvalidLength();
+            revert InvalidIndex();
         }
 
         for (uint i = _index; i < length - 1;) {
@@ -263,9 +266,6 @@ contract Hyperchat is Router {
         else if (msgType == MessageType.GeneralMessage) {
             // No logic for general messages beyond being stored in _handle()'s logic
             emit GeneralMessage(conversationID, sender, _message.message);
-        }
-        else {
-            revert InvalidType();
         }
     }
 
@@ -620,6 +620,10 @@ contract Hyperchat is Router {
         }
         // Revert if _address isn't already an admin
         if (!_conversations[_conversationID].isAdmin[_address]) {
+            revert InvalidAdmin();
+        }
+        // Revert if _address is the last admin
+        if (_conversations[_conversationID].admins.length == 1) {
             revert InvalidAdmin();
         }
 

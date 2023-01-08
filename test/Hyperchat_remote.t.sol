@@ -5,7 +5,7 @@ import {DSTestPlus} from "solmate/test/utils/DSTestPlus.sol";
 import "forge-std/console.sol";
 
 import "hyperlane/mock/MockHyperlaneEnvironment.sol";
-import "../src/Hyperchat.sol";
+import "./HyperchatWithInternalFunctions.sol";
 
 contract HyperchatRemoteTests is DSTestPlus {
 
@@ -25,8 +25,8 @@ contract HyperchatRemoteTests is DSTestPlus {
 
     MockHyperlaneEnvironment testEnv;
 
-    Hyperchat appA;
-    Hyperchat appB;
+    HyperchatWithInternalFunctions appA;
+    HyperchatWithInternalFunctions appB;
     uint32[] domainsA = [1,2];
     bytes32[] participantsA = [addressToBytes32(address(0xABCD)), addressToBytes32(address(0xBEEF))];
     bytes convSeedA = bytes("I <3 EVM!");
@@ -43,8 +43,8 @@ contract HyperchatRemoteTests is DSTestPlus {
         address igpB = address(testEnv.igps(2));
 
         // Hyperchat and Hyperlane Router Setup
-        appA = new Hyperchat(1, mailboxA, igpA);
-        appB = new Hyperchat(2, mailboxB, igpB);
+        appA = new HyperchatWithInternalFunctions(1, mailboxA, igpA);
+        appB = new HyperchatWithInternalFunctions(2, mailboxB, igpB);
         appA.enrollRemoteRouter(2, addressToBytes32(address(appB)));
         appB.enrollRemoteRouter(1, addressToBytes32(address(appA)));
 
@@ -97,6 +97,36 @@ contract HyperchatRemoteTests is DSTestPlus {
         require(messageA.msgType == messageB.msgType, "Message: type mismatch");
     }
 
+    // Test receiving a duplicate InitiateConversation message
+    function testRemoteInitiateConversationDuplicate() public {
+        // Initiate a conversation
+        convIDA = appA.initiateConversation{ value: 100000 gwei }(domainsA, participantsA, convSeedA, convNameA);
+        // Emulate Hyperlane data bridging
+        testEnv.processNextPendingMessage();
+
+        // Prep duplicated InitiateConversation message
+        Hyperchat.Message memory message;
+        message.timestamp = block.timestamp;
+        message.sender = addressToBytes32(address(this));
+        message.conversationID = convIDA;
+        message.participants = new bytes32[](3);
+        message.participants[0] = addressToBytes32(address(this));
+        message.participants[1] = addressToBytes32(address(0xABCD));
+        message.participants[2] = addressToBytes32(address(0xBEEF));
+        message.domainIDs = new uint32[](2);
+        message.domainIDs[0] = 1;
+        message.domainIDs[1] = 2;
+        message.message = convNameA;
+        message.msgType = Hyperchat.MessageType.InitiateConversation;
+
+        // Send duplicate message
+        // Expect InvalidConversation error as conversation ID is already generated
+        appA.sendMessage{ value: 100000 gwei }(convIDA, abi.encode(message));
+        // Error is only triggered when received
+        hevm.expectRevert(Hyperchat.InvalidConversation.selector);
+        testEnv.processNextPendingMessage();
+    }
+
     /*//////////////////////////////////////////////////////////////
                 ADD/REMOVE ADMIN APPROVAL
     //////////////////////////////////////////////////////////////*/
@@ -110,6 +140,38 @@ contract HyperchatRemoteTests is DSTestPlus {
         // Emulate Hyperlane data bridging
         testEnv.processNextPendingMessage();
         testEnv.processNextPendingMessage();
+
+        // Retrieve appA conversation and message data
+        (uint256 msgCountA,,) = appA.retrieveConversation(convIDA);
+        Hyperchat.Message[] memory messagesA = appA.retrieveMessages(convIDA, 1, 1);
+        Hyperchat.Message memory messageA = messagesA[0];
+        // Retrieve appB conversation and message data
+        (uint256 msgCountB,,) = appB.retrieveConversation(convIDA);
+        Hyperchat.Message[] memory messagesB = appB.retrieveMessages(convIDA, 1, 1);
+        Hyperchat.Message memory messageB = messagesB[0];
+
+        // Check if conversation message count matches
+        require(msgCountA == msgCountB, "Conversation: message count mismatch");
+
+        // Check if message data matches
+        require(messageA.timestamp == messageB.timestamp, "Message: timestamp mismatch");
+        require(messageA.sender == messageB.sender, "Message: sender mismatch");
+        require(messageA.conversationID == messageB.conversationID, "Message: conversation ID mismatch");
+        require(messageA.participants.length == messageB.participants.length, "Message: participants array length mismatch");
+        require(messageA.participants[0] == messageB.participants[0], "Message: participant address mismatch");
+        require(messageA.domainIDs.length == messageB.domainIDs.length, "Message: domainIDs array length mismatch");
+        require(keccak256(abi.encodePacked(messageA.message)) == keccak256(abi.encodePacked(messageB.message)), "Message: name mismatch");
+        require(messageA.msgType == messageB.msgType, "Message: type mismatch");
+    }
+
+    function testRemoteAddAdminApprovalNonOrigin() public {
+        // Initiate a conversation
+        convIDA = appA.initiateConversation{ value: 100000 gwei }(domainsA, participantsA, convSeedA, convNameA);
+        testEnv.processNextPendingMessage();
+        
+        // Give 0xABCD admin approval from a non-origin domain
+        appB.addAdminApproval{ value: 100000 gwei }(convIDA, participantsA[0], bytes(""));
+        testEnv.processNextPendingMessageFromDestination();
 
         // Retrieve appA conversation and message data
         (uint256 msgCountA,,) = appA.retrieveConversation(convIDA);
@@ -170,6 +232,42 @@ contract HyperchatRemoteTests is DSTestPlus {
         require(messageA.msgType == messageB.msgType, "Message: type mismatch");
     }
 
+    function testRemoteRemoveAdminApprovalNonOrigin() public {
+        // Initiate a conversation
+        convIDA = appA.initiateConversation{ value: 100000 gwei }(domainsA, participantsA, convSeedA, convNameA);
+        testEnv.processNextPendingMessage();
+
+        // Give 0xABCD admin approval from a non-origin domain
+        appB.addAdminApproval{ value: 100000 gwei }(convIDA, participantsA[0], bytes(""));
+        testEnv.processNextPendingMessageFromDestination();
+
+        // Remove 0xABCD admin approval from a non-origin domain
+        appB.removeAdminApproval{ value: 100000 gwei }(convIDA, participantsA[0], bytes(""));
+        testEnv.processNextPendingMessageFromDestination();
+
+        // Retrieve appA conversation and message data
+        (uint256 msgCountA,,) = appA.retrieveConversation(convIDA);
+        Hyperchat.Message[] memory messagesA = appA.retrieveMessages(convIDA, 2, 2);
+        Hyperchat.Message memory messageA = messagesA[0];
+        // Retrieve appB conversation and message data
+        (uint256 msgCountB,,) = appB.retrieveConversation(convIDA);
+        Hyperchat.Message[] memory messagesB = appB.retrieveMessages(convIDA, 2, 2);
+        Hyperchat.Message memory messageB = messagesB[0];
+
+        // Check if conversation message count matches
+        require(msgCountA == msgCountB, "Conversation: message count mismatch");
+
+        // Check if message data matches
+        require(messageA.timestamp == messageB.timestamp, "Message: timestamp mismatch");
+        require(messageA.sender == messageB.sender, "Message: sender mismatch");
+        require(messageA.conversationID == messageB.conversationID, "Message: conversation ID mismatch");
+        require(messageA.participants.length == messageB.participants.length, "Message: participants array length mismatch");
+        require(messageA.participants[0] == messageB.participants[0], "Message: participant address mismatch");
+        require(messageA.domainIDs.length == messageB.domainIDs.length, "Message: domainIDs array length mismatch");
+        require(keccak256(abi.encodePacked(messageA.message)) == keccak256(abi.encodePacked(messageB.message)), "Message: name mismatch");
+        require(messageA.msgType == messageB.msgType, "Message: type mismatch");
+    }
+
     /*//////////////////////////////////////////////////////////////
                 ADD/REMOVE ADMIN
     //////////////////////////////////////////////////////////////*/
@@ -186,6 +284,42 @@ contract HyperchatRemoteTests is DSTestPlus {
         testEnv.processNextPendingMessage();
         testEnv.processNextPendingMessage();
         testEnv.processNextPendingMessage();
+
+        // Retrieve appA conversation and message data
+        (uint256 msgCountA,,) = appA.retrieveConversation(convIDA);
+        Hyperchat.Message[] memory messagesA = appA.retrieveMessages(convIDA, 2, 2);
+        Hyperchat.Message memory messageA = messagesA[0];
+        // Retrieve appB conversation and message data
+        (uint256 msgCountB,,) = appB.retrieveConversation(convIDA);
+        Hyperchat.Message[] memory messagesB = appB.retrieveMessages(convIDA, 2, 2);
+        Hyperchat.Message memory messageB = messagesB[0];
+
+        // Check if conversation message count matches
+        require(msgCountA == msgCountB, "Conversation: message count mismatch");
+
+        // Check if message data matches
+        require(messageA.timestamp == messageB.timestamp, "Message: timestamp mismatch");
+        require(messageA.sender == messageB.sender, "Message: sender mismatch");
+        require(messageA.conversationID == messageB.conversationID, "Message: conversation ID mismatch");
+        require(messageA.participants.length == messageB.participants.length, "Message: participants array length mismatch");
+        require(messageA.participants[0] == messageB.participants[0], "Message: participant address mismatch");
+        require(messageA.domainIDs.length == messageB.domainIDs.length, "Message: domainIDs array length mismatch");
+        require(keccak256(abi.encodePacked(messageA.message)) == keccak256(abi.encodePacked(messageB.message)), "Message: name mismatch");
+        require(messageA.msgType == messageB.msgType, "Message: type mismatch");
+    }
+
+    function testRemoteAddAdminNonOrigin() public {
+        // Initiate a conversation
+        convIDA = appA.initiateConversation{ value: 100000 gwei }(domainsA, participantsA, convSeedA, convNameA);
+        testEnv.processNextPendingMessage();
+        
+        // Give 0xABCD admin approval from a non-origin domain
+        appB.addAdminApproval{ value: 100000 gwei }(convIDA, participantsA[0], bytes(""));
+        testEnv.processNextPendingMessageFromDestination();
+        
+        // Make 0xABCD an admin as deployer of a new conversation is the entire voting/admin pool from a non-origin domain
+        appB.addAdmin{ value: 100000 gwei }(convIDA, participantsA[0], bytes(""));
+        testEnv.processNextPendingMessageFromDestination();
 
         // Retrieve appA conversation and message data
         (uint256 msgCountA,,) = appA.retrieveConversation(convIDA);
@@ -251,6 +385,50 @@ contract HyperchatRemoteTests is DSTestPlus {
         require(keccak256(abi.encodePacked(messageA.message)) == keccak256(abi.encodePacked(messageB.message)), "Message: name mismatch");
         require(messageA.msgType == messageB.msgType, "Message: type mismatch");
     }
+    
+    function testRemoteRemoveAdminNonOrigin() public {
+        // Initiate a conversation
+        convIDA = appA.initiateConversation{ value: 100000 gwei }(domainsA, participantsA, convSeedA, convNameA);
+        testEnv.processNextPendingMessage();
+        
+        // Give 0xABCD admin approval from a non-origin domain
+        appB.addAdminApproval{ value: 100000 gwei }(convIDA, participantsA[0], bytes(""));
+        testEnv.processNextPendingMessageFromDestination();
+        
+        // Make 0xABCD an admin as deployer of a new conversation is the entire voting/admin pool from a non-origin domain
+        appB.addAdmin{ value: 100000 gwei }(convIDA, participantsA[0], bytes(""));
+        testEnv.processNextPendingMessageFromDestination();
+
+        // Remove deployer's 0xABCD admin approval from a non-origin domain
+        appB.removeAdminApproval{ value: 100000 gwei }(convIDA, participantsA[0], bytes(""));
+        testEnv.processNextPendingMessageFromDestination();
+
+        // Remove 0xABCD's admin rights from a non-origin domain
+        appB.removeAdmin{ value: 100000 gwei }(convIDA, participantsA[0], bytes(""));
+        testEnv.processNextPendingMessageFromDestination();
+
+        // Retrieve appA conversation and message data
+        (uint256 msgCountA,,) = appA.retrieveConversation(convIDA);
+        Hyperchat.Message[] memory messagesA = appA.retrieveMessages(convIDA, 4, 4);
+        Hyperchat.Message memory messageA = messagesA[0];
+        // Retrieve appB conversation and message data
+        (uint256 msgCountB,,) = appB.retrieveConversation(convIDA);
+        Hyperchat.Message[] memory messagesB = appB.retrieveMessages(convIDA, 4, 4);
+        Hyperchat.Message memory messageB = messagesB[0];
+
+        // Check if conversation message count matches
+        require(msgCountA == msgCountB, "Conversation: message count mismatch");
+
+        // Check if message data matches
+        require(messageA.timestamp == messageB.timestamp, "Message: timestamp mismatch");
+        require(messageA.sender == messageB.sender, "Message: sender mismatch");
+        require(messageA.conversationID == messageB.conversationID, "Message: conversation ID mismatch");
+        require(messageA.participants.length == messageB.participants.length, "Message: participants array length mismatch");
+        require(messageA.participants[0] == messageB.participants[0], "Message: participant address mismatch");
+        require(messageA.domainIDs.length == messageB.domainIDs.length, "Message: domainIDs array length mismatch");
+        require(keccak256(abi.encodePacked(messageA.message)) == keccak256(abi.encodePacked(messageB.message)), "Message: name mismatch");
+        require(messageA.msgType == messageB.msgType, "Message: type mismatch");
+    }
 
     /*//////////////////////////////////////////////////////////////
                 ADD/REMOVE PARTICIPANT
@@ -265,6 +443,38 @@ contract HyperchatRemoteTests is DSTestPlus {
         // Emulate Hyperlane data bridging
         testEnv.processNextPendingMessage();
         testEnv.processNextPendingMessage();
+
+        // Retrieve appA conversation and message data
+        (uint256 msgCountA,,) = appA.retrieveConversation(convIDA);
+        Hyperchat.Message[] memory messagesA = appA.retrieveMessages(convIDA, 1, 1);
+        Hyperchat.Message memory messageA = messagesA[0];
+        // Retrieve appB conversation and message data
+        (uint256 msgCountB,,) = appB.retrieveConversation(convIDA);
+        Hyperchat.Message[] memory messagesB = appB.retrieveMessages(convIDA, 1, 1);
+        Hyperchat.Message memory messageB = messagesB[0];
+
+        // Check if conversation message count matches
+        require(msgCountA == msgCountB, "Conversation: message count mismatch");
+
+        // Check if message data matches
+        require(messageA.timestamp == messageB.timestamp, "Message: timestamp mismatch");
+        require(messageA.sender == messageB.sender, "Message: sender mismatch");
+        require(messageA.conversationID == messageB.conversationID, "Message: conversation ID mismatch");
+        require(messageA.participants.length == messageB.participants.length, "Message: participants array length mismatch");
+        require(messageA.participants[0] == messageB.participants[0], "Message: participant address mismatch");
+        require(messageA.domainIDs.length == messageB.domainIDs.length, "Message: domainIDs array length mismatch");
+        require(keccak256(abi.encodePacked(messageA.message)) == keccak256(abi.encodePacked(messageB.message)), "Message: name mismatch");
+        require(messageA.msgType == messageB.msgType, "Message: type mismatch");
+    }
+
+    function testRemoteAddParticipantNonOrigin() public {
+        // Initiate a conversation
+        convIDA = appA.initiateConversation{ value: 100000 gwei }(domainsA, participantsA, convSeedA, convNameA);
+        testEnv.processNextPendingMessage();
+        
+        // Add 0xDEED to the conversation from a non-origin domain
+        appB.addParticipant{ value: 100000 gwei }(convIDA, addressToBytes32(address(0xDEED)), bytes(""));
+        testEnv.processNextPendingMessageFromDestination();
 
         // Retrieve appA conversation and message data
         (uint256 msgCountA,,) = appA.retrieveConversation(convIDA);
@@ -325,6 +535,42 @@ contract HyperchatRemoteTests is DSTestPlus {
         require(messageA.msgType == messageB.msgType, "Message: type mismatch");
     }
 
+    function testRemoteRemoveParticipantNonOrigin() public {
+        // Initiate a conversation
+        convIDA = appA.initiateConversation{ value: 100000 gwei }(domainsA, participantsA, convSeedA, convNameA);
+        testEnv.processNextPendingMessage();
+        
+        // Add 0xDEED to the conversation from a non-origin domain
+        appB.addParticipant{ value: 100000 gwei }(convIDA, addressToBytes32(address(0xDEED)), bytes(""));
+        testEnv.processNextPendingMessageFromDestination();
+        
+        // Remove 0xDEED from the conversation from a non-origin domain
+        appB.removeParticipant{ value: 100000 gwei }(convIDA, addressToBytes32(address(0xDEED)), bytes(""));
+        testEnv.processNextPendingMessageFromDestination();
+        
+        // Retrieve appA conversation and message data
+        (uint256 msgCountA,,) = appA.retrieveConversation(convIDA);
+        Hyperchat.Message[] memory messagesA = appA.retrieveMessages(convIDA, 2, 2);
+        Hyperchat.Message memory messageA = messagesA[0];
+        // Retrieve appB conversation and message data
+        (uint256 msgCountB,,) = appB.retrieveConversation(convIDA);
+        Hyperchat.Message[] memory messagesB = appB.retrieveMessages(convIDA, 2, 2);
+        Hyperchat.Message memory messageB = messagesB[0];
+
+        // Check if conversation message count matches
+        require(msgCountA == msgCountB, "Conversation: message count mismatch");
+
+        // Check if message data matches
+        require(messageA.timestamp == messageB.timestamp, "Message: timestamp mismatch");
+        require(messageA.sender == messageB.sender, "Message: sender mismatch");
+        require(messageA.conversationID == messageB.conversationID, "Message: conversation ID mismatch");
+        require(messageA.participants.length == messageB.participants.length, "Message: participants array length mismatch");
+        require(messageA.participants[0] == messageB.participants[0], "Message: participant address mismatch");
+        require(messageA.domainIDs.length == messageB.domainIDs.length, "Message: domainIDs array length mismatch");
+        require(keccak256(abi.encodePacked(messageA.message)) == keccak256(abi.encodePacked(messageB.message)), "Message: name mismatch");
+        require(messageA.msgType == messageB.msgType, "Message: type mismatch");
+    }
+
     /*//////////////////////////////////////////////////////////////
                 GENERAL MESSAGE
     //////////////////////////////////////////////////////////////*/
@@ -339,6 +585,37 @@ contract HyperchatRemoteTests is DSTestPlus {
         testEnv.processNextPendingMessage();
         testEnv.processNextPendingMessage();
 
+        // Retrieve appA conversation and message data
+        (uint256 msgCountA,,) = appA.retrieveConversation(convIDA);
+        Hyperchat.Message[] memory messagesA = appA.retrieveMessages(convIDA, 1, 1);
+        Hyperchat.Message memory messageA = messagesA[0];
+        // Retrieve appB conversation and message data
+        (uint256 msgCountB,,) = appB.retrieveConversation(convIDA);
+        Hyperchat.Message[] memory messagesB = appB.retrieveMessages(convIDA, 1, 1);
+        Hyperchat.Message memory messageB = messagesB[0];
+
+        // Check if conversation message count matches
+        require(msgCountA == msgCountB, "Conversation: message count mismatch");
+
+        // Check if message data matches
+        require(messageA.timestamp == messageB.timestamp, "Message: timestamp mismatch");
+        require(messageA.sender == messageB.sender, "Message: sender mismatch");
+        require(messageA.conversationID == messageB.conversationID, "Message: conversation ID mismatch");
+        require(messageA.participants.length == messageB.participants.length, "Message: participants array length mismatch");
+        require(messageA.domainIDs.length == messageB.domainIDs.length, "Message: domainIDs array length mismatch");
+        require(keccak256(abi.encodePacked(messageA.message)) == keccak256(abi.encodePacked(messageB.message)), "Message: name mismatch");
+        require(messageA.msgType == messageB.msgType, "Message: type mismatch");
+    }
+
+    function testRemoteGeneralMessageNonOrigin() public {
+        // Initiate a conversation
+        convIDA = appA.initiateConversation{ value: 100000 gwei }(domainsA, participantsA, convSeedA, convNameA);
+        testEnv.processNextPendingMessage();
+
+        // Send a message from a non-origin domain
+        appB.generalMessage{ value: 100000 gwei }(convIDA, bytes("GeneralMessage"));
+        testEnv.processNextPendingMessageFromDestination();
+        
         // Retrieve appA conversation and message data
         (uint256 msgCountA,,) = appA.retrieveConversation(convIDA);
         Hyperchat.Message[] memory messagesA = appA.retrieveMessages(convIDA, 1, 1);
