@@ -8,19 +8,20 @@ WARNING: NOT YET READY FOR PRODUCTION, STILL IN DEVELOPMENT
 
 
 
-## Status
+## Changelog
 
-AS OF 2022-12-23, THE ENTIRE CODEBASE HAS BEEN REWRITTEN AND IS CURRENTLY IN ITS TESTING PHASE!
+2023-01-09 v0.1 [IT WORKS!](https://explorer-v2.hyperlane.xyz/message/a1f97fd3352fdd3f8fe020073e82c9f6deb9ce95b8a4ae4b43f65355a60c2416)
 
-AS OF 2023-01-07, HYPERLANE MOCKS HAVE BEEN IMPLEMENTED AND CROSS-CHAIN MESSAGING APPEARS TO WORK AS INTENDED, MORE TESTS ARE STILL REQUIRED, BUT THE PROJECT APPEARS TO BE USABLE
+Test coverage is really good too! Hyperlane gas payments are not currently enabled as I couldn't get them to work. All of the code is still in place, and is simply commented out. Feel free to test and use it!
 
 ## Features
 
 - Utilizes Hyperlane for data bridging
 - No cap on participants per conversation
 - Participants can be added or removed from conversations by any administrator
-- Admins can grant or remove admin status to any participant via 51% admin vote
-- Conversations can span multiple chains at once and have their state duplicated in nearly realtime.
+- Admins can add or remove admin status to/from any participant via 50% admin approval vote
+    - If an admin loses 50% approval quorum, any admin can remove their admin privileges
+- Conversations can span multiple chains at once and have their state duplicated within minutes.
     - Chains must be declared at conversation initialization
     - Chains cannot be added or removed, new conversations must be made
 
@@ -28,11 +29,9 @@ AS OF 2023-01-07, HYPERLANE MOCKS HAVE BEEN IMPLEMENTED AND CROSS-CHAIN MESSAGIN
 
 #### What administrative functions are present?
 
-None! 😎 Hyperchat was designed such that conversations are self-managed by their participants.
+Hyperchat itself doesn't have any administrative functions! The contract deployer/owner cannot do anything to modify any conversation data at all. Only conversation admins have control over conversations themselves.
 
-There are no administrative functions that allow the contract owner to modify conversation data whatsoever.
-
-In fact, the contract doesn't even use Ownable contract logic!
+The only "administrative"-leaning functions are the Hyperlane management functions `enrollRemoteRouter()`, `enrollRemoteRouters()`, `setInterchainGasPaymaster()`, `setInterchainSecurityModule()`, and `setMailbox()`. These are necessary to connect Hyperchat instances together, and to adjust the addresses used with the Hyperlane infrastructure.
 
 #### Why can't additional chains be retroactively added/removed?
 
@@ -72,7 +71,7 @@ forge test
 
 `forge test` is now implemented! MockHyperlaneEnvironment allows for Hyperlane simulation
 
-Once deployed across all target chains (supportable by Hyperlane), instances must be managed and made aware of each other via Hyperlane's Router.sol `enrollRemoteRouter()` function.
+Once deployed across all target chains (supportable by Hyperlane), instances must be managed and made aware of each other via either of Hyperlane's Router.sol `enrollRemoteRouter()` or `enrollRemoteRouters()` functions.
 
 ## Authors
 
