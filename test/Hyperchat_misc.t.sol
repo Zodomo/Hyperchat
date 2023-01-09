@@ -76,15 +76,15 @@ contract HyperchatRemoteTests is DSTestPlus {
 
     function testRetrieveMessages() public {
         // Initiate a conversation
-        convIDA = appA.initiateConversation{ value: 100000 gwei }(domainsA, participantsA, convSeedA, convNameA);
+        convIDA = appA.initiateConversation{ value: 10000000 gwei }(domainsA, participantsA, convSeedA, convNameA);
         // Give 0xABCD admin approval
-        appA.addAdminApproval{ value: 100000 gwei }(convIDA, participantsA[0], bytes(""));
+        appA.addAdminApproval{ value: 10000000 gwei }(convIDA, participantsA[0], bytes(""));
         // Make 0xABCD an admin as deployer of a new conversation is the entire voting/admin pool
-        appA.addAdmin{ value: 100000 gwei }(convIDA, participantsA[0], bytes(""));
+        appA.addAdmin{ value: 10000000 gwei }(convIDA, participantsA[0], bytes(""));
         // Remove deployer's 0xABCD admin approval
-        appA.removeAdminApproval{ value: 100000 gwei }(convIDA, participantsA[0], bytes(""));
+        appA.removeAdminApproval{ value: 10000000 gwei }(convIDA, participantsA[0], bytes(""));
         // Remove 0xABCD's admin rights
-        appA.removeAdmin{ value: 100000 gwei }(convIDA, participantsA[0], bytes(""));
+        appA.removeAdmin{ value: 10000000 gwei }(convIDA, participantsA[0], bytes(""));
 
         // Emulate Hyperlane data bridging
         testEnv.processNextPendingMessage();
@@ -151,8 +151,8 @@ contract HyperchatRemoteTests is DSTestPlus {
 
     function testRetrieveConversation() public {
         // Initiate two conversations, one from each domain
-        convIDA = appA.initiateConversation{ value: 100000 gwei }(domainsA, participantsA, convSeedA, convNameA);
-        convIDB = appB.initiateConversation{ value: 100000 gwei }(domainsB, participantsA, convSeedA, convNameA);
+        convIDA = appA.initiateConversation{ value: 10000000 gwei }(domainsA, participantsA, convSeedA, convNameA);
+        convIDB = appB.initiateConversation{ value: 10000000 gwei }(domainsB, participantsA, convSeedA, convNameA);
 
         // Process Hyperlane bridging
         testEnv.processNextPendingMessage();
@@ -180,11 +180,11 @@ contract HyperchatRemoteTests is DSTestPlus {
     // Test removing the first admin address in a valid conversation's admin array
     function testInternalRemoveFromAdminArrayFirst() public {
         // Initiate a conversation
-        convIDA = appA.initiateConversation{ value: 100000 gwei }(domainsA, participantsA, convSeedA, convNameA);
+        convIDA = appA.initiateConversation{ value: 10000000 gwei }(domainsA, participantsA, convSeedA, convNameA);
         // Give 0xABCD admin approval
-        appA.addAdminApproval{ value: 100000 gwei }(convIDA, participantsA[0], bytes(""));
+        appA.addAdminApproval{ value: 10000000 gwei }(convIDA, participantsA[0], bytes(""));
         // Make 0xABCD an admin as deployer of a new conversation is the entire voting/admin pool
-        appA.addAdmin{ value: 100000 gwei }(convIDA, participantsA[0], bytes(""));
+        appA.addAdmin{ value: 10000000 gwei }(convIDA, participantsA[0], bytes(""));
 
         // Remove first admin address
         appA.removeFromAdminArray(convIDA, 0);
@@ -193,11 +193,11 @@ contract HyperchatRemoteTests is DSTestPlus {
     // Test removing the last admin address in a valid conversation's admin array
     function testInternalRemoveFromAdminArrayLast() public {
         // Initiate a conversation
-        convIDA = appA.initiateConversation{ value: 100000 gwei }(domainsA, participantsA, convSeedA, convNameA);
+        convIDA = appA.initiateConversation{ value: 10000000 gwei }(domainsA, participantsA, convSeedA, convNameA);
         // Give 0xABCD admin approval
-        appA.addAdminApproval{ value: 100000 gwei }(convIDA, participantsA[0], bytes(""));
+        appA.addAdminApproval{ value: 10000000 gwei }(convIDA, participantsA[0], bytes(""));
         // Make 0xABCD an admin as deployer of a new conversation is the entire voting/admin pool
-        appA.addAdmin{ value: 100000 gwei }(convIDA, participantsA[0], bytes(""));
+        appA.addAdmin{ value: 10000000 gwei }(convIDA, participantsA[0], bytes(""));
 
         // Remove first admin address
         appA.removeFromAdminArray(convIDA, 1);
@@ -206,7 +206,7 @@ contract HyperchatRemoteTests is DSTestPlus {
     // Test removing the only admin address in a valid conversation's admin array
     function testInternalRemoveFromAdminArrayOnly() public {
         // Initiate a conversation
-        convIDA = appA.initiateConversation{ value: 100000 gwei }(domainsA, participantsA, convSeedA, convNameA);
+        convIDA = appA.initiateConversation{ value: 10000000 gwei }(domainsA, participantsA, convSeedA, convNameA);
 
         // Remove first admin address
         appA.removeFromAdminArray(convIDA, 0);
@@ -216,7 +216,7 @@ contract HyperchatRemoteTests is DSTestPlus {
     // Should fail with InvalidIndex
     function testInternalRemoveFromAdminArrayOOB() public {
         // Initiate a conversation
-        convIDA = appA.initiateConversation{ value: 100000 gwei }(domainsA, participantsA, convSeedA, convNameA);
+        convIDA = appA.initiateConversation{ value: 10000000 gwei }(domainsA, participantsA, convSeedA, convNameA);
 
         // Attempt to remove second admin address from admin array
         // Expect InvalidIndex error as index is out of bounds
@@ -228,6 +228,6 @@ contract HyperchatRemoteTests is DSTestPlus {
     // Should fail with InvalidConversation
     function testInitiateConversationForceDuplicateConversationID() public {
         // Initiate a conversation
-        convIDA = appA.initiateConversation{ value: 100000 gwei }(domainsA, participantsA, convSeedA, convNameA);
+        convIDA = appA.initiateConversation{ value: 10000000 gwei }(domainsA, participantsA, convSeedA, convNameA);
     }
 }

@@ -284,8 +284,8 @@ contract Hyperchat is Router {
         bytes memory _seed,
         bytes memory _name
     ) public payable returns (bytes32 conversationID) {
-        // Require msg.value == 100000 gwei for current InterchainGasPaymaster integration until on-chain gas estimation is implemented
-        require(msg.value >= 100000 gwei, "Not enough gas for Hyperlane InterchainGasPaymaster");
+        // Require msg.value == 10000000 gwei for current InterchainGasPaymaster integration until on-chain gas estimation is implemented
+        require(msg.value >= 10000000 gwei, "Not enough gas for Hyperlane InterchainGasPaymaster");
 
         // Calculate conversationID
         // Extremely packed to prevent any chance of MEV abuse or collision
@@ -459,8 +459,8 @@ contract Hyperchat is Router {
         bytes32 _address,
         bytes memory _message
     ) public payable onlyAdmin(_conversationID) {
-        // Require msg.value == 100000 gwei for current InterchainGasPaymaster integration until on-chain gas estimation is implemented
-        require(msg.value >= 100000 gwei, "Not enough gas for Hyperlane InterchainGasPaymaster");
+        // Require msg.value == 10000000 gwei for current InterchainGasPaymaster integration until on-chain gas estimation is implemented
+        require(msg.value >= 10000000 gwei, "Not enough gas for Hyperlane InterchainGasPaymaster");
 
         // Revert if _address isnt a member
         if (!_conversations[_conversationID].allowlist[_address]) {
@@ -504,8 +504,8 @@ contract Hyperchat is Router {
         bytes32 _address,
         bytes memory _message
     ) public payable onlyAdmin(_conversationID) {
-        // Require msg.value == 100000 gwei for current InterchainGasPaymaster integration until on-chain gas estimation is implemented
-        require(msg.value >= 100000 gwei, "Not enough gas for Hyperlane InterchainGasPaymaster");
+        // Require msg.value == 10000000 gwei for current InterchainGasPaymaster integration until on-chain gas estimation is implemented
+        require(msg.value >= 10000000 gwei, "Not enough gas for Hyperlane InterchainGasPaymaster");
 
         // Revert if _address isnt a member
         if (!_conversations[_conversationID].allowlist[_address]) {
@@ -552,8 +552,8 @@ contract Hyperchat is Router {
         bytes32 _address,
         bytes memory _message
     ) public payable onlyAdmin(_conversationID) {
-        // Require msg.value == 100000 gwei for current InterchainGasPaymaster integration until on-chain gas estimation is implemented
-        require(msg.value >= 100000 gwei, "Not enough gas for Hyperlane InterchainGasPaymaster");
+        // Require msg.value == 10000000 gwei for current InterchainGasPaymaster integration until on-chain gas estimation is implemented
+        require(msg.value >= 10000000 gwei, "Not enough gas for Hyperlane InterchainGasPaymaster");
 
         // Revert if _address isnt a member
         if (!_conversations[_conversationID].allowlist[_address]) {
@@ -626,8 +626,8 @@ contract Hyperchat is Router {
         bytes32 _address,
         bytes memory _message
     ) public payable onlyAdmin(_conversationID) {
-        // Require msg.value == 100000 gwei for current InterchainGasPaymaster integration until on-chain gas estimation is implemented
-        require(msg.value >= 100000 gwei, "Not enough gas for Hyperlane InterchainGasPaymaster");
+        // Require msg.value == 10000000 gwei for current InterchainGasPaymaster integration until on-chain gas estimation is implemented
+        require(msg.value >= 10000000 gwei, "Not enough gas for Hyperlane InterchainGasPaymaster");
 
         // Revert if _address isnt a member
         if (!_conversations[_conversationID].allowlist[_address]) {
@@ -718,8 +718,8 @@ contract Hyperchat is Router {
         bytes32 _address,
         bytes memory _message
     ) public payable onlyAdmin(_conversationID) {
-        // Require msg.value == 100000 gwei for current InterchainGasPaymaster integration until on-chain gas estimation is implemented
-        require(msg.value >= 100000 gwei, "Not enough gas for Hyperlane InterchainGasPaymaster");
+        // Require msg.value == 10000000 gwei for current InterchainGasPaymaster integration until on-chain gas estimation is implemented
+        require(msg.value >= 10000000 gwei, "Not enough gas for Hyperlane InterchainGasPaymaster");
 
         // Add if not present, else revert
         if (!_conversations[_conversationID].allowlist[_address]) {
@@ -757,8 +757,8 @@ contract Hyperchat is Router {
         bytes32 _address,
         bytes memory _message
     ) public payable onlyAdmin(_conversationID) {
-        // Require msg.value == 100000 gwei for current InterchainGasPaymaster integration until on-chain gas estimation is implemented
-        require(msg.value >= 100000 gwei, "Not enough gas for Hyperlane InterchainGasPaymaster");
+        // Require msg.value == 10000000 gwei for current InterchainGasPaymaster integration until on-chain gas estimation is implemented
+        require(msg.value >= 10000000 gwei, "Not enough gas for Hyperlane InterchainGasPaymaster");
 
         // Remove if present and non-admin, else revert
         if (!_conversations[_conversationID].allowlist[_address]) {
@@ -800,8 +800,8 @@ contract Hyperchat is Router {
 
     // Send general message
     function generalMessage(bytes32 _conversationID, bytes memory _message) public payable onlyMember(_conversationID) {
-        // Require msg.value == 100000 gwei for current InterchainGasPaymaster integration until on-chain gas estimation is implemented
-        require(msg.value >= 100000 gwei, "Not enough gas for Hyperlane InterchainGasPaymaster");
+        // Require msg.value == 10000000 gwei for current InterchainGasPaymaster integration until on-chain gas estimation is implemented
+        require(msg.value >= 10000000 gwei, "Not enough gas for Hyperlane InterchainGasPaymaster");
         
         // Revert if _message is zero bytes
         if (_message.length == 0) {
@@ -844,7 +844,7 @@ contract Hyperchat is Router {
                 continue;
             }
 
-            _dispatchWithGas(domainID, _message, 100000 gwei, 100000 gwei, msg.sender);
+            _dispatchWithGas(domainID, _message, 10000000 gwei, 10000000 gwei, msg.sender);
             
             // Shouldn't overflow
             unchecked { ++i; }

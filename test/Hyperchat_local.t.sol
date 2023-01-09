@@ -28,6 +28,7 @@ contract HyperchatLocalTests is DSTestPlus {
     HyperchatWithInternalFunctions appA;
     HyperchatWithInternalFunctions appB;
     uint32[] domainsA = [1,2];
+    uint32[] domainLocal = [1];
     bytes32[] participantsA = [addressToBytes32(address(0xABCD)), addressToBytes32(address(0xBEEF))];
     bytes32[] participantsExtended = [addressToBytes32(address(0xABCD)), addressToBytes32(address(this)), addressToBytes32(address(0xBEEF))];
     bytes convSeedA = bytes("I <3 EVM!");
@@ -67,7 +68,7 @@ contract HyperchatLocalTests is DSTestPlus {
     // Test initiating a valid conversation with all data fields populated
     function testLocalInitiateConversation() public {
         // Initiate a conversation
-        convIDA = appA.initiateConversation{ value: 100000 gwei }(domainsA, participantsA, convSeedA, convNameA);
+        convIDA = appA.initiateConversation{ value: 10000000 gwei }(domainsA, participantsA, convSeedA, convNameA);
         // Retrieve InitiateConversation message with retrieveMessages() function
         Hyperchat.Message[] memory messagesA = appA.retrieveMessages(convIDA, 0, 0);
         Hyperchat.Message memory messageA = messagesA[0];
@@ -135,8 +136,8 @@ contract HyperchatLocalTests is DSTestPlus {
     // Test initiating two conversations with the same exact set of data
     function testLocalInitiateConversationsDuplicateData() public {
         // Initiate two conversations with the same data
-        convIDA = appA.initiateConversation{ value: 100000 gwei }(domainsA, participantsA, convSeedA, convNameA);
-        convIDB = appA.initiateConversation{ value: 100000 gwei }(domainsA, participantsA, convSeedA, convNameA);
+        convIDA = appA.initiateConversation{ value: 10000000 gwei }(domainsA, participantsA, convSeedA, convNameA);
+        convIDB = appA.initiateConversation{ value: 10000000 gwei }(domainsA, participantsA, convSeedA, convNameA);
         // Retrieve InitiateConversation message with retrieveMessages() function
         Hyperchat.Message[] memory messagesA = appA.retrieveMessages(convIDA, 0, 0);
         Hyperchat.Message[] memory messagesB = appA.retrieveMessages(convIDB, 0, 0);
@@ -245,7 +246,7 @@ contract HyperchatLocalTests is DSTestPlus {
     // Test initiating a conversation without the name field populated
     function testInitiateConversationWithoutName() public {
         // Initiate conversation without name
-        convIDA = appA.initiateConversation{ value: 100000 gwei }(domainsA, participantsA, convSeedA, bytes(""));
+        convIDA = appA.initiateConversation{ value: 10000000 gwei }(domainsA, participantsA, convSeedA, bytes(""));
 
         // Retrieve InitiateConversation message with retrieveMessages() function
         Hyperchat.Message[] memory messagesA = appA.retrieveMessages(convIDA, 0, 0);
@@ -259,7 +260,7 @@ contract HyperchatLocalTests is DSTestPlus {
     // Test initiating a conversation with the initiator address in the participant array
     function testInitiateConversationInitiatorAddressInParticipantArray() public {
         // Initiate conversation
-        convIDA = appA.initiateConversation{ value: 100000 gwei }(domainsA, participantsExtended, convSeedA, convNameA);
+        convIDA = appA.initiateConversation{ value: 10000000 gwei }(domainsA, participantsExtended, convSeedA, convNameA);
 
         // Retrieve InitiateConversation message with retrieveMessages() function
         Hyperchat.Message[] memory messagesA = appA.retrieveMessages(convIDA, 0, 0);
@@ -276,7 +277,7 @@ contract HyperchatLocalTests is DSTestPlus {
     // Should fail with InvalidConversation error
     function testInitiateConversationForceDuplicateConversationID() public {
         // Initiate conversation
-        convIDA = appA.initiateConversation{ value: 100000 gwei }(domainsA, participantsExtended, convSeedA, convNameA);
+        convIDA = appA.initiateConversation{ value: 10000000 gwei }(domainsA, participantsExtended, convSeedA, convNameA);
 
         // Spoof conversationCount as it is used in conversation ID generation
         appA.decrementConversationCount(1);
@@ -284,7 +285,21 @@ contract HyperchatLocalTests is DSTestPlus {
         // Attempt to initiate a conversation with a conversation ID that already exists
         // Expect InvalidConversation error due to ID conflict
         hevm.expectRevert(Hyperchat.InvalidConversation.selector);
-        convIDB = appA.initiateConversation{ value: 100000 gwei }(domainsA, participantsExtended, convSeedA, convNameA);
+        convIDB = appA.initiateConversation{ value: 10000000 gwei }(domainsA, participantsExtended, convSeedA, convNameA);
+    }
+
+    // Test initializing a conversation with a single domain scope
+    function testInitializeConversationSingleDomain() public {
+        // Initiate conversation
+        convIDA = appA.initiateConversation{ value: 10000000 gwei }(domainLocal, participantsExtended, convSeedA, convNameA);
+
+        // Retrieve InitiateConversation message with retrieveMessages() function
+        Hyperchat.Message[] memory messagesA = appA.retrieveMessages(convIDA, 0, 0);
+        Hyperchat.Message memory messageA = messagesA[0];
+
+        // Check message data
+        require(messageA.domainIDs.length == 1, "Message: domainID array length incorrect");
+        require(messageA.domainIDs[0] == domainLocal[0], "Message: domainID mismatch");
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -295,9 +310,9 @@ contract HyperchatLocalTests is DSTestPlus {
     function testLocalAddAdminApproval() public {
         console.log(address(this));
         // Initiate a conversation
-        convIDA = appA.initiateConversation{ value: 100000 gwei }(domainsA, participantsA, convSeedA, convNameA);
+        convIDA = appA.initiateConversation{ value: 10000000 gwei }(domainsA, participantsA, convSeedA, convNameA);
         // Give 0xABCD admin approval
-        appA.addAdminApproval{ value: 100000 gwei }(convIDA, participantsA[0], bytes(""));
+        appA.addAdminApproval{ value: 10000000 gwei }(convIDA, participantsA[0], bytes(""));
         
         // Retrieve new _conversations data
         (uint256 msgCountA,,) = appA.retrieveConversation(convIDA);
@@ -325,9 +340,9 @@ contract HyperchatLocalTests is DSTestPlus {
     // Test adding valid admin approval for a conversation participant by a conversation admin with a custom message
     function testLocalAddAdminApprovalWithCustomMessage() public {
         // Initiate a conversation
-        convIDA = appA.initiateConversation{ value: 100000 gwei }(domainsA, participantsA, convSeedA, convNameA);
+        convIDA = appA.initiateConversation{ value: 10000000 gwei }(domainsA, participantsA, convSeedA, convNameA);
         // Give 0xABCD admin approval
-        appA.addAdminApproval{ value: 100000 gwei }(convIDA, participantsA[0], bytes("test"));
+        appA.addAdminApproval{ value: 10000000 gwei }(convIDA, participantsA[0], bytes("test"));
         
         // Retrieve new _conversations data
         (uint256 msgCountA,,) = appA.retrieveConversation(convIDA);
@@ -354,37 +369,37 @@ contract HyperchatLocalTests is DSTestPlus {
     // Should fail with InvalidApprovals error
     function testLocalAddAdminApprovalDuplicate() public {
         // Initiate a conversation
-        convIDA = appA.initiateConversation{ value: 100000 gwei }(domainsA, participantsA, convSeedA, convNameA);
+        convIDA = appA.initiateConversation{ value: 10000000 gwei }(domainsA, participantsA, convSeedA, convNameA);
         // Give 0xABCD admin approval
-        appA.addAdminApproval{ value: 100000 gwei }(convIDA, participantsA[0], bytes(""));
+        appA.addAdminApproval{ value: 10000000 gwei }(convIDA, participantsA[0], bytes(""));
 
         // Duplicate 0xABCD admin approval
         // Expect InvalidApprovals error as duplicate approvals are blocked
         hevm.expectRevert(Hyperchat.InvalidApprovals.selector);
-        appA.addAdminApproval{ value: 100000 gwei }(convIDA, participantsA[0], bytes(""));
+        appA.addAdminApproval{ value: 10000000 gwei }(convIDA, participantsA[0], bytes(""));
     }
 
     // Test giving admin approval to a non-participant address
     // Should fail with InvalidParticipant error
     function testLocalAddAdminApprovalInvalidParticipant() public {
         // Initiate a conversation
-        convIDA = appA.initiateConversation{ value: 100000 gwei }(domainsA, participantsA, convSeedA, convNameA);
+        convIDA = appA.initiateConversation{ value: 10000000 gwei }(domainsA, participantsA, convSeedA, convNameA);
         // Give 0xDEED admin approval
         // Expect InvalidParticipant error as address isnt a participant
         hevm.expectRevert(Hyperchat.InvalidParticipant.selector);
-        appA.addAdminApproval{ value: 100000 gwei }(convIDA, addressToBytes32(address(0xDEED)), bytes(""));
+        appA.addAdminApproval{ value: 10000000 gwei }(convIDA, addressToBytes32(address(0xDEED)), bytes(""));
     }
 
     // Test attempting to give admin approval as a non-admin
     // Should fail with InvalidAdmin error
     function testLocalAddAdminApprovalInvalidAdmin() public {
         // Initiate a conversation
-        convIDA = appA.initiateConversation{ value: 100000 gwei }(domainsA, participantsA, convSeedA, convNameA);
+        convIDA = appA.initiateConversation{ value: 10000000 gwei }(domainsA, participantsA, convSeedA, convNameA);
         // Give 0xABCD admin approval
         // Expect InvalidAdmin error as address isnt an admin
         hevm.startPrank(address(0xABCD));
         hevm.expectRevert(Hyperchat.InvalidAdmin.selector);
-        appA.addAdminApproval{ value: 100000 gwei }(convIDA, participantsA[0], bytes(""));
+        appA.addAdminApproval{ value: 10000000 gwei }(convIDA, participantsA[0], bytes(""));
         hevm.stopPrank();
     }
 
@@ -393,7 +408,7 @@ contract HyperchatLocalTests is DSTestPlus {
     function testLocalAddAdminApprovalInvalidConversation() public {
         // Expect InvalidAdmin error as bytes32("test") is not yet a valid conversation ID
         hevm.expectRevert(Hyperchat.InvalidConversation.selector);
-        appA.addAdminApproval{ value: 100000 gwei }(bytes32("test"), participantsA[0], bytes(""));
+        appA.addAdminApproval{ value: 10000000 gwei }(bytes32("test"), participantsA[0], bytes(""));
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -403,11 +418,11 @@ contract HyperchatLocalTests is DSTestPlus {
     // Test removing valid admin approval for a conversation participant by a conversation admin
     function testLocalRemoveAdminApproval() public {
         // Initiate a conversation
-        convIDA = appA.initiateConversation{ value: 100000 gwei }(domainsA, participantsA, convSeedA, convNameA);
+        convIDA = appA.initiateConversation{ value: 10000000 gwei }(domainsA, participantsA, convSeedA, convNameA);
         // Give 0xABCD admin approval
-        appA.addAdminApproval{ value: 100000 gwei }(convIDA, participantsA[0], bytes(""));
+        appA.addAdminApproval{ value: 10000000 gwei }(convIDA, participantsA[0], bytes(""));
         // Remove 0xABCD admin approval
-        appA.removeAdminApproval{ value: 100000 gwei }(convIDA, participantsA[0], bytes(""));
+        appA.removeAdminApproval{ value: 10000000 gwei }(convIDA, participantsA[0], bytes(""));
         
         // Retrieve new _conversations data
         (uint256 msgCountA,,) = appA.retrieveConversation(convIDA);
@@ -435,11 +450,11 @@ contract HyperchatLocalTests is DSTestPlus {
     // Test removing valid admin approval for a conversation participant by a conversation admin with a custom message
     function testLocalRemoveAdminApprovalWithCustomMessage() public {
         // Initiate a conversation
-        convIDA = appA.initiateConversation{ value: 100000 gwei }(domainsA, participantsA, convSeedA, convNameA);
+        convIDA = appA.initiateConversation{ value: 10000000 gwei }(domainsA, participantsA, convSeedA, convNameA);
         // Give 0xABCD admin approval
-        appA.addAdminApproval{ value: 100000 gwei }(convIDA, participantsA[0], bytes(""));
+        appA.addAdminApproval{ value: 10000000 gwei }(convIDA, participantsA[0], bytes(""));
         // Remove 0xABCD admin approval
-        appA.removeAdminApproval{ value: 100000 gwei }(convIDA, participantsA[0], bytes("test"));
+        appA.removeAdminApproval{ value: 10000000 gwei }(convIDA, participantsA[0], bytes("test"));
         
         // Retrieve new _conversations data
         (uint256 msgCountA,,) = appA.retrieveConversation(convIDA);
@@ -466,39 +481,39 @@ contract HyperchatLocalTests is DSTestPlus {
     // Should fail with InvalidApprovals error
     function testLocalRemoveAdminApprovalDuplicate() public {
         // Initiate a conversation
-        convIDA = appA.initiateConversation{ value: 100000 gwei }(domainsA, participantsA, convSeedA, convNameA);
+        convIDA = appA.initiateConversation{ value: 10000000 gwei }(domainsA, participantsA, convSeedA, convNameA);
         // Give 0xABCD admin approval
-        appA.addAdminApproval{ value: 100000 gwei }(convIDA, participantsA[0], bytes(""));
+        appA.addAdminApproval{ value: 10000000 gwei }(convIDA, participantsA[0], bytes(""));
         // Remove 0xABCD admin approval
-        appA.removeAdminApproval{ value: 100000 gwei }(convIDA, participantsA[0], bytes(""));
+        appA.removeAdminApproval{ value: 10000000 gwei }(convIDA, participantsA[0], bytes(""));
 
         // Duplicate remove 0xABCD admin approval
         // Expect InvalidApprovals error as duplicate approvals are blocked
         hevm.expectRevert(Hyperchat.InvalidApprovals.selector);
-        appA.removeAdminApproval{ value: 100000 gwei }(convIDA, participantsA[0], bytes(""));
+        appA.removeAdminApproval{ value: 10000000 gwei }(convIDA, participantsA[0], bytes(""));
     }
 
     // Test removing admin approval from a non-participant address
     // Should fail with InvalidParticipant error
     function testLocalRemoveAdminApprovalInvalidParticipant() public {
         // Initiate a conversation
-        convIDA = appA.initiateConversation{ value: 100000 gwei }(domainsA, participantsA, convSeedA, convNameA);
+        convIDA = appA.initiateConversation{ value: 10000000 gwei }(domainsA, participantsA, convSeedA, convNameA);
         // Remove 0xDEED's admin approval
         // Expect InvalidParticipant error as address isnt a participant
         hevm.expectRevert(Hyperchat.InvalidParticipant.selector);
-        appA.removeAdminApproval{ value: 100000 gwei }(convIDA, addressToBytes32(address(0xDEED)), bytes(""));
+        appA.removeAdminApproval{ value: 10000000 gwei }(convIDA, addressToBytes32(address(0xDEED)), bytes(""));
     }
 
     // Test removing admin approval as a non-admin
     // Should fail with InvalidAdmin error
     function testLocalRemoveAdminApprovalInvalidAdmin() public {
         // Initiate a conversation
-        convIDA = appA.initiateConversation{ value: 100000 gwei }(domainsA, participantsA, convSeedA, convNameA);
+        convIDA = appA.initiateConversation{ value: 10000000 gwei }(domainsA, participantsA, convSeedA, convNameA);
         // Remove 0xABCD's admin approval
         // Expect InvalidAdmin error as address isnt an admin
         hevm.startPrank(address(0xABCD));
         hevm.expectRevert(Hyperchat.InvalidAdmin.selector);
-        appA.removeAdminApproval{ value: 100000 gwei }(convIDA, participantsA[0], bytes(""));
+        appA.removeAdminApproval{ value: 10000000 gwei }(convIDA, participantsA[0], bytes(""));
         hevm.stopPrank();
     }
 
@@ -507,20 +522,20 @@ contract HyperchatLocalTests is DSTestPlus {
     function testLocalRemoveAdminApprovalInvalidConversation() public {
         // Expect InvalidAdmin error as bytes32("test") is not yet a valid conversation ID
         hevm.expectRevert(Hyperchat.InvalidConversation.selector);
-        appA.removeAdminApproval{ value: 100000 gwei }(bytes32("test"), participantsA[0], bytes(""));
+        appA.removeAdminApproval{ value: 10000000 gwei }(bytes32("test"), participantsA[0], bytes(""));
     }
 
     // Test removing self admin approval as valid conversation admin
     function testLocalRemoveAdminApprovalSelf() public {
         // Initiate a conversation
-        convIDA = appA.initiateConversation{ value: 100000 gwei }(domainsA, participantsA, convSeedA, convNameA);
+        convIDA = appA.initiateConversation{ value: 10000000 gwei }(domainsA, participantsA, convSeedA, convNameA);
         // Give admin approval vote to 0xABCD
-        appA.addAdminApproval{ value: 100000 gwei }(convIDA, participantsA[0], bytes(""));
+        appA.addAdminApproval{ value: 10000000 gwei }(convIDA, participantsA[0], bytes(""));
         // Make 0xABCD an admin as deployer of a new conversation is the entire voting/admin pool
-        appA.addAdmin{ value: 100000 gwei }(convIDA, participantsA[0], bytes(""));
+        appA.addAdmin{ value: 10000000 gwei }(convIDA, participantsA[0], bytes(""));
         // Revoke admin approval for 0xABCD as 0xABCD
         hevm.prank(address(0xABCD));
-        appA.removeAdminApproval{ value: 100000 gwei }(convIDA, participantsA[0], bytes(""));
+        appA.removeAdminApproval{ value: 10000000 gwei }(convIDA, participantsA[0], bytes(""));
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -530,11 +545,11 @@ contract HyperchatLocalTests is DSTestPlus {
     // Test giving admin rights to a valid participant with enough admin approval votes
     function testLocalAddAdmin() public {
         // Initiate a conversation
-        convIDA = appA.initiateConversation{ value: 100000 gwei }(domainsA, participantsA, convSeedA, convNameA);
+        convIDA = appA.initiateConversation{ value: 10000000 gwei }(domainsA, participantsA, convSeedA, convNameA);
         // Give admin approval vote to 0xABCD
-        appA.addAdminApproval{ value: 100000 gwei }(convIDA, participantsA[0], bytes(""));
+        appA.addAdminApproval{ value: 10000000 gwei }(convIDA, participantsA[0], bytes(""));
         // Make 0xABCD an admin as deployer of a new conversation is the entire voting/admin pool
-        appA.addAdmin{ value: 100000 gwei }(convIDA, participantsA[0], bytes(""));
+        appA.addAdmin{ value: 10000000 gwei }(convIDA, participantsA[0], bytes(""));
 
         // Retrieve conversation message count and check it
         (uint256 msgCountA,,) = appA.retrieveConversation(convIDA);
@@ -562,11 +577,11 @@ contract HyperchatLocalTests is DSTestPlus {
     // Test giving admin rights to a valid participant with enough admin approval votes with a custom message
     function testLocalAddAdminWithCustomMessage() public {
         // Initiate a conversation
-        convIDA = appA.initiateConversation{ value: 100000 gwei }(domainsA, participantsA, convSeedA, convNameA);
+        convIDA = appA.initiateConversation{ value: 10000000 gwei }(domainsA, participantsA, convSeedA, convNameA);
         // Give admin approval vote to 0xABCD
-        appA.addAdminApproval{ value: 100000 gwei }(convIDA, participantsA[0], bytes(""));
+        appA.addAdminApproval{ value: 10000000 gwei }(convIDA, participantsA[0], bytes(""));
         // Make 0xABCD an admin as deployer of a new conversation is the entire voting/admin pool
-        appA.addAdmin{ value: 100000 gwei }(convIDA, participantsA[0], bytes("you're an admin now 0xABCD!"));
+        appA.addAdmin{ value: 10000000 gwei }(convIDA, participantsA[0], bytes("you're an admin now 0xABCD!"));
 
         // Retrieve conversation message count and check it
         (uint256 msgCountA,,) = appA.retrieveConversation(convIDA);
@@ -595,56 +610,56 @@ contract HyperchatLocalTests is DSTestPlus {
     // Should fail with InvalidAdmin error
     function testLocalAddAdminDuplicate() public {
         // Initiate a conversation
-        convIDA = appA.initiateConversation{ value: 100000 gwei }(domainsA, participantsA, convSeedA, convNameA);
+        convIDA = appA.initiateConversation{ value: 10000000 gwei }(domainsA, participantsA, convSeedA, convNameA);
         // Give admin approval vote to 0xABCD
-        appA.addAdminApproval{ value: 100000 gwei }(convIDA, participantsA[0], bytes(""));
+        appA.addAdminApproval{ value: 10000000 gwei }(convIDA, participantsA[0], bytes(""));
         // Make 0xABCD an admin as deployer of a new conversation is the entire voting/admin pool
-        appA.addAdmin{ value: 100000 gwei }(convIDA, participantsA[0], bytes(""));
+        appA.addAdmin{ value: 10000000 gwei }(convIDA, participantsA[0], bytes(""));
 
         // Duplicate call to add 0xABCD as admin
         // Expect InvalidAdmin as 0xABCD is already admin
         hevm.expectRevert(Hyperchat.InvalidAdmin.selector);
-        appA.addAdmin{ value: 100000 gwei }(convIDA, participantsA[0], bytes(""));
+        appA.addAdmin{ value: 10000000 gwei }(convIDA, participantsA[0], bytes(""));
     }
 
     // Test adding a valid participant as admin without enough votes
     // Should fail with InvalidApprovals error
     function testLocalAddAdminWithoutAdequateApprovals() public {
         // Initiate a conversation
-        convIDA = appA.initiateConversation{ value: 100000 gwei }(domainsA, participantsA, convSeedA, convNameA);
+        convIDA = appA.initiateConversation{ value: 10000000 gwei }(domainsA, participantsA, convSeedA, convNameA);
         // Give admin approval vote to 0xABCD
         // We need two admins in order for a failed 1/2 vote to occur
-        appA.addAdminApproval{ value: 100000 gwei }(convIDA, participantsA[0], bytes(""));
+        appA.addAdminApproval{ value: 10000000 gwei }(convIDA, participantsA[0], bytes(""));
         // Make 0xABCD an admin as deployer of a new conversation is the entire voting/admin pool
-        appA.addAdmin{ value: 100000 gwei }(convIDA, participantsA[0], bytes(""));
+        appA.addAdmin{ value: 10000000 gwei }(convIDA, participantsA[0], bytes(""));
         // Cast admin approval vote for 0xBEEF next
-        appA.addAdminApproval{ value: 100000 gwei }(convIDA, participantsA[1], bytes(""));
+        appA.addAdminApproval{ value: 10000000 gwei }(convIDA, participantsA[1], bytes(""));
 
         // Attempt to make 0xBEEF with only 50% of vote
         // Expect InvalidApprovals revert
         hevm.expectRevert(Hyperchat.InvalidApprovals.selector);
-        appA.addAdmin{ value: 100000 gwei }(convIDA, participantsA[1], bytes(""));
+        appA.addAdmin{ value: 10000000 gwei }(convIDA, participantsA[1], bytes(""));
     }
 
     // Test trying to promote a valid participant to admin as admin without any admin approvals
     // Should fail with InvalidApprovals error
     function testLocalAddAdminWithoutAnyApprovals() public {
         // Initiate a conversation
-        convIDA = appA.initiateConversation{ value: 100000 gwei }(domainsA, participantsA, convSeedA, convNameA);
+        convIDA = appA.initiateConversation{ value: 10000000 gwei }(domainsA, participantsA, convSeedA, convNameA);
         // Attempt to promote 0xABCD to admin without any votes
         hevm.expectRevert(Hyperchat.InvalidApprovals.selector);
-        appA.addAdmin{ value: 100000 gwei }(convIDA, participantsA[0], bytes(""));
+        appA.addAdmin{ value: 10000000 gwei }(convIDA, participantsA[0], bytes(""));
     }
 
     // Test trying to promote a valid participant to admin as a participant
     // Should fail with InvalidAdmin error
     function testLocalAddAdminAsNonAdminWithoutAnyApprovals() public {
         // Initiate a conversation
-        convIDA = appA.initiateConversation{ value: 100000 gwei }(domainsA, participantsA, convSeedA, convNameA);
+        convIDA = appA.initiateConversation{ value: 10000000 gwei }(domainsA, participantsA, convSeedA, convNameA);
         // Attempt to promote 0xABCD as 0xBEEF to admin without any votes
         hevm.startPrank(address(0xBEEF));
         hevm.expectRevert(Hyperchat.InvalidAdmin.selector);
-        appA.addAdmin{ value: 100000 gwei }(convIDA, participantsA[0], bytes(""));
+        appA.addAdmin{ value: 10000000 gwei }(convIDA, participantsA[0], bytes(""));
         hevm.stopPrank();
     }
 
@@ -652,13 +667,13 @@ contract HyperchatLocalTests is DSTestPlus {
     // Should fail with InvalidAdmin error
     function testLocalAddAdminAsNonAdminWithSufficientApprovals() public {
         // Initiate a conversation
-        convIDA = appA.initiateConversation{ value: 100000 gwei }(domainsA, participantsA, convSeedA, convNameA);
+        convIDA = appA.initiateConversation{ value: 10000000 gwei }(domainsA, participantsA, convSeedA, convNameA);
         // Give 0xABCD admin approval
-        appA.addAdminApproval{ value: 100000 gwei }(convIDA, participantsA[0], "testing");
+        appA.addAdminApproval{ value: 10000000 gwei }(convIDA, participantsA[0], "testing");
         // Attempt to promote 0xABCD as 0xBEEF to admin with sufficient votes
         hevm.startPrank(address(0xBEEF));
         hevm.expectRevert(Hyperchat.InvalidAdmin.selector);
-        appA.addAdmin{ value: 100000 gwei }(convIDA, participantsA[0], bytes(""));
+        appA.addAdmin{ value: 10000000 gwei }(convIDA, participantsA[0], bytes(""));
         hevm.stopPrank();
     }
     
@@ -666,12 +681,12 @@ contract HyperchatLocalTests is DSTestPlus {
     // Should fail with InvalidAdmin error
     function testLocalAddAdminAsNonParticipant() public {
         // Initiate a conversation
-        convIDA = appA.initiateConversation{ value: 100000 gwei }(domainsA, participantsA, convSeedA, convNameA);
+        convIDA = appA.initiateConversation{ value: 10000000 gwei }(domainsA, participantsA, convSeedA, convNameA);
 
         // Attempt to promote 0xABCD to admin as 0xDEED
         hevm.startPrank(address(0xDEED));
         hevm.expectRevert(Hyperchat.InvalidAdmin.selector);
-        appA.addAdmin{ value: 100000 gwei }(convIDA, participantsA[0], bytes("lol"));
+        appA.addAdmin{ value: 10000000 gwei }(convIDA, participantsA[0], bytes("lol"));
         hevm.stopPrank();
     }
 
@@ -679,18 +694,18 @@ contract HyperchatLocalTests is DSTestPlus {
     // Should fail with InvalidConversation error
     function testLocalAddAdminInvalidConversation() public {
         hevm.expectRevert(Hyperchat.InvalidConversation.selector);
-        appA.addAdmin{ value: 100000 gwei }(bytes32("2"), addressToBytes32(address(0xDEED)), bytes("I think I'm lost..."));
+        appA.addAdmin{ value: 10000000 gwei }(bytes32("2"), addressToBytes32(address(0xDEED)), bytes("I think I'm lost..."));
     }
 
     // Test promoting an invalid participant address to admin in a valid conversation as admin
     // Should fail with InvalidParticipant error
     function testLocalAddAdminInvalidParticipant() public {
         // Initiate a conversation
-        convIDA = appA.initiateConversation{ value: 100000 gwei }(domainsA, participantsA, convSeedA, convNameA);
+        convIDA = appA.initiateConversation{ value: 10000000 gwei }(domainsA, participantsA, convSeedA, convNameA);
 
         // Attempt to add a non-participant address to the conversation as admin
         hevm.expectRevert(Hyperchat.InvalidParticipant.selector);
-        appA.addAdmin{ value: 100000 gwei }(convIDA, addressToBytes32(address(0xDEED)), bytes(""));
+        appA.addAdmin{ value: 10000000 gwei }(convIDA, addressToBytes32(address(0xDEED)), bytes(""));
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -700,15 +715,15 @@ contract HyperchatLocalTests is DSTestPlus {
     // Test demoting an address from admin for a valid conversation as a conversation admin
     function testLocalRemoveAdmin() public {
         // Initiate a conversation
-        convIDA = appA.initiateConversation{ value: 100000 gwei }(domainsA, participantsA, convSeedA, convNameA);
+        convIDA = appA.initiateConversation{ value: 10000000 gwei }(domainsA, participantsA, convSeedA, convNameA);
         // Give admin approval vote to 0xABCD
-        appA.addAdminApproval{ value: 100000 gwei }(convIDA, participantsA[0], bytes(""));
+        appA.addAdminApproval{ value: 10000000 gwei }(convIDA, participantsA[0], bytes(""));
         // Make 0xABCD an admin as deployer of a new conversation is the entire voting/admin pool
-        appA.addAdmin{ value: 100000 gwei }(convIDA, participantsA[0], bytes(""));
+        appA.addAdmin{ value: 10000000 gwei }(convIDA, participantsA[0], bytes(""));
         // Remove deployer's 0xABCD admin approval
-        appA.removeAdminApproval{ value: 100000 gwei }(convIDA, participantsA[0], bytes(""));
+        appA.removeAdminApproval{ value: 10000000 gwei }(convIDA, participantsA[0], bytes(""));
         // Remove 0xABCD's admin rights
-        appA.removeAdmin{ value: 100000 gwei }(convIDA, participantsA[0], bytes(""));
+        appA.removeAdmin{ value: 10000000 gwei }(convIDA, participantsA[0], bytes(""));
 
         // Retrieve conversation message count and check it
         (uint256 msgCountA,,) = appA.retrieveConversation(convIDA);
@@ -736,15 +751,15 @@ contract HyperchatLocalTests is DSTestPlus {
     // Test demoting an address from admin for a valid conversation as a conversation admin with custom message
     function testLocalRemoveAdminWithCustomMessage() public {
         // Initiate a conversation
-        convIDA = appA.initiateConversation{ value: 100000 gwei }(domainsA, participantsA, convSeedA, convNameA);
+        convIDA = appA.initiateConversation{ value: 10000000 gwei }(domainsA, participantsA, convSeedA, convNameA);
         // Give admin approval vote to 0xABCD
-        appA.addAdminApproval{ value: 100000 gwei }(convIDA, participantsA[0], bytes(""));
+        appA.addAdminApproval{ value: 10000000 gwei }(convIDA, participantsA[0], bytes(""));
         // Make 0xABCD an admin as deployer of a new conversation is the entire voting/admin pool
-        appA.addAdmin{ value: 100000 gwei }(convIDA, participantsA[0], bytes(""));
+        appA.addAdmin{ value: 10000000 gwei }(convIDA, participantsA[0], bytes(""));
         // Remove deployer's 0xABCD admin approval
-        appA.removeAdminApproval{ value: 100000 gwei }(convIDA, participantsA[0], bytes(""));
+        appA.removeAdminApproval{ value: 10000000 gwei }(convIDA, participantsA[0], bytes(""));
         // Remove 0xABCD's admin rights
-        appA.removeAdmin{ value: 100000 gwei }(convIDA, participantsA[0], bytes("get rekt"));
+        appA.removeAdmin{ value: 10000000 gwei }(convIDA, participantsA[0], bytes("get rekt"));
 
         // Retrieve conversation message count and check it
         (uint256 msgCountA,,) = appA.retrieveConversation(convIDA);
@@ -773,93 +788,93 @@ contract HyperchatLocalTests is DSTestPlus {
     // Should fail with InvalidAdmin error
     function testLocalRemoveAdminDuplicate() public {
         // Initiate a conversation
-        convIDA = appA.initiateConversation{ value: 100000 gwei }(domainsA, participantsA, convSeedA, convNameA);
+        convIDA = appA.initiateConversation{ value: 10000000 gwei }(domainsA, participantsA, convSeedA, convNameA);
         // Give admin approval vote to 0xABCD
-        appA.addAdminApproval{ value: 100000 gwei }(convIDA, participantsA[0], bytes(""));
+        appA.addAdminApproval{ value: 10000000 gwei }(convIDA, participantsA[0], bytes(""));
         // Make 0xABCD an admin as deployer of a new conversation is the entire voting/admin pool
-        appA.addAdmin{ value: 100000 gwei }(convIDA, participantsA[0], bytes(""));
+        appA.addAdmin{ value: 10000000 gwei }(convIDA, participantsA[0], bytes(""));
         // Remove deployer's 0xABCD admin approval
-        appA.removeAdminApproval{ value: 100000 gwei }(convIDA, participantsA[0], bytes(""));
+        appA.removeAdminApproval{ value: 10000000 gwei }(convIDA, participantsA[0], bytes(""));
         // Remove 0xABCD's admin rights
-        appA.removeAdmin{ value: 100000 gwei }(convIDA, participantsA[0], bytes(""));
+        appA.removeAdmin{ value: 10000000 gwei }(convIDA, participantsA[0], bytes(""));
 
         // Duplicate call to remove 0xABCD as admin
         // Expect InvalidAdmin as 0xABCD is no longer an admin
         hevm.expectRevert(Hyperchat.InvalidAdmin.selector);
-        appA.removeAdmin{ value: 100000 gwei }(convIDA, participantsA[0], bytes(""));
+        appA.removeAdmin{ value: 10000000 gwei }(convIDA, participantsA[0], bytes(""));
     }
 
     // Test removing a valid admin without removing any approvals
     // Should fail with InvalidApprovals error
     function testLocalRemoveAdminWithSufficientApprovals() public {
         // Initiate a conversation
-        convIDA = appA.initiateConversation{ value: 100000 gwei }(domainsA, participantsA, convSeedA, convNameA);
+        convIDA = appA.initiateConversation{ value: 10000000 gwei }(domainsA, participantsA, convSeedA, convNameA);
         // Give admin approval vote to 0xABCD
-        appA.addAdminApproval{ value: 100000 gwei }(convIDA, participantsA[0], bytes(""));
+        appA.addAdminApproval{ value: 10000000 gwei }(convIDA, participantsA[0], bytes(""));
         // Make 0xABCD an admin as deployer of a new conversation is the entire voting/admin pool
-        appA.addAdmin{ value: 100000 gwei }(convIDA, participantsA[0], bytes(""));
+        appA.addAdmin{ value: 10000000 gwei }(convIDA, participantsA[0], bytes(""));
 
         // Attempt to remove 0xABCD's admin rights
         // Expect InvalidApprovals error as no approvals were removed so they have full support
         hevm.expectRevert(Hyperchat.InvalidApprovals.selector);
-        appA.removeAdmin{ value: 100000 gwei }(convIDA, participantsA[0], bytes(""));
+        appA.removeAdmin{ value: 10000000 gwei }(convIDA, participantsA[0], bytes(""));
     }
 
     // Test removing an admin without support but as a valid non-admin participant
     // Should fail with InvalidAdmin error
     function testLocalRemoveAdminAsNonAdminParticipant() public {
         // Initiate a conversation
-        convIDA = appA.initiateConversation{ value: 100000 gwei }(domainsA, participantsA, convSeedA, convNameA);
+        convIDA = appA.initiateConversation{ value: 10000000 gwei }(domainsA, participantsA, convSeedA, convNameA);
         // Give admin approval vote to 0xABCD
-        appA.addAdminApproval{ value: 100000 gwei }(convIDA, participantsA[0], bytes(""));
+        appA.addAdminApproval{ value: 10000000 gwei }(convIDA, participantsA[0], bytes(""));
         // Make 0xABCD an admin as deployer of a new conversation is the entire voting/admin pool
-        appA.addAdmin{ value: 100000 gwei }(convIDA, participantsA[0], bytes(""));
+        appA.addAdmin{ value: 10000000 gwei }(convIDA, participantsA[0], bytes(""));
         // Revoke admin approval for 0xABCD
-        appA.removeAdminApproval{ value: 100000 gwei }(convIDA, participantsA[0], bytes(""));
+        appA.removeAdminApproval{ value: 10000000 gwei }(convIDA, participantsA[0], bytes(""));
 
         // Attempt to remove 0xABCD's admin rights as 0xBEEF
         // Expect InvalidAdmin error as 0xBEEF is not an admin
         hevm.startPrank(address(0xBEEF));
         hevm.expectRevert(Hyperchat.InvalidAdmin.selector);
-        appA.removeAdmin{ value: 100000 gwei }(convIDA, participantsA[0], bytes(""));
+        appA.removeAdmin{ value: 10000000 gwei }(convIDA, participantsA[0], bytes(""));
         hevm.stopPrank();
     }
 
     // Test removing an admin with zero approvals as valid admin
     function testLocalRemoveAdminWithZeroApprovals() public {
         // Initiate a conversation
-        convIDA = appA.initiateConversation{ value: 100000 gwei }(domainsA, participantsA, convSeedA, convNameA);
+        convIDA = appA.initiateConversation{ value: 10000000 gwei }(domainsA, participantsA, convSeedA, convNameA);
         // Give admin approval vote to 0xABCD
-        appA.addAdminApproval{ value: 100000 gwei }(convIDA, participantsA[0], bytes(""));
+        appA.addAdminApproval{ value: 10000000 gwei }(convIDA, participantsA[0], bytes(""));
         // Make 0xABCD an admin as deployer of a new conversation is the entire voting/admin pool
-        appA.addAdmin{ value: 100000 gwei }(convIDA, participantsA[0], bytes(""));
+        appA.addAdmin{ value: 10000000 gwei }(convIDA, participantsA[0], bytes(""));
         // Revoke admin approval for 0xABCD
-        appA.removeAdminApproval{ value: 100000 gwei }(convIDA, participantsA[0], bytes(""));
+        appA.removeAdminApproval{ value: 10000000 gwei }(convIDA, participantsA[0], bytes(""));
         // Self revoke admin approval as 0xABCD
         hevm.prank(address(0xABCD));
-        appA.removeAdminApproval{ value: 100000 gwei }(convIDA, participantsA[0], bytes(""));
+        appA.removeAdminApproval{ value: 10000000 gwei }(convIDA, participantsA[0], bytes(""));
 
         // Finally remove admin
-        appA.removeAdmin{ value: 100000 gwei }(convIDA, participantsA[0], bytes(""));
+        appA.removeAdmin{ value: 10000000 gwei }(convIDA, participantsA[0], bytes(""));
     }
 
     // Test removing an admin as a non-valid participant
     // Should fail with InvalidParticipant error
     function testLocalRemoveAdminAsInvalidParticipant() public {
         // Initiate a conversation
-        convIDA = appA.initiateConversation{ value: 100000 gwei }(domainsA, participantsA, convSeedA, convNameA);
+        convIDA = appA.initiateConversation{ value: 10000000 gwei }(domainsA, participantsA, convSeedA, convNameA);
         // Give admin approval vote to 0xABCD
-        appA.addAdminApproval{ value: 100000 gwei }(convIDA, participantsA[0], bytes(""));
+        appA.addAdminApproval{ value: 10000000 gwei }(convIDA, participantsA[0], bytes(""));
         // Make 0xABCD an admin as deployer of a new conversation is the entire voting/admin pool
-        appA.addAdmin{ value: 100000 gwei }(convIDA, participantsA[0], bytes(""));
+        appA.addAdmin{ value: 10000000 gwei }(convIDA, participantsA[0], bytes(""));
         // Revoke admin approval for 0xABCD
-        appA.removeAdminApproval{ value: 100000 gwei }(convIDA, participantsA[0], bytes(""));
+        appA.removeAdminApproval{ value: 10000000 gwei }(convIDA, participantsA[0], bytes(""));
 
         // Attempt to remove admin as non-participant 0xDEED
         // Expect Invalid as 0xDEED is not a valid conversation admin
         hevm.startPrank(address(0xDEED));
         hevm.expectRevert(Hyperchat.InvalidAdmin.selector);
-        appA.removeAdmin{ value: 100000 gwei }(convIDA, participantsA[0], bytes("lol"));
+        appA.removeAdmin{ value: 10000000 gwei }(convIDA, participantsA[0], bytes("lol"));
         hevm.stopPrank();
     }
 
@@ -867,29 +882,29 @@ contract HyperchatLocalTests is DSTestPlus {
     // Should fail with InvalidConversation error
     function testLocalRemoveAdminInvalidConversation() public {
         hevm.expectRevert(Hyperchat.InvalidConversation.selector);
-        appA.removeAdmin{ value: 100000 gwei }(bytes32("2"), participantsA[0], bytes("man I hate that dude"));
+        appA.removeAdmin{ value: 10000000 gwei }(bytes32("2"), participantsA[0], bytes("man I hate that dude"));
     }
 
     // Test removing an invalid participant address as admin from a valid conversation as a valid admin
     // Should fail with InvalidParticipant error
     function testLocalRemoveAdminInvalidParticipant() public {
         // Initiate a conversation
-        convIDA = appA.initiateConversation{ value: 100000 gwei }(domainsA, participantsA, convSeedA, convNameA);
+        convIDA = appA.initiateConversation{ value: 10000000 gwei }(domainsA, participantsA, convSeedA, convNameA);
         
         // Attempt to remove an invalid participant address as admin
         hevm.expectRevert(Hyperchat.InvalidParticipant.selector);
-        appA.removeAdmin{ value: 100000 gwei }(convIDA, addressToBytes32(address(0xDEED)), bytes("i just hate this dude"));
+        appA.removeAdmin{ value: 10000000 gwei }(convIDA, addressToBytes32(address(0xDEED)), bytes("i just hate this dude"));
     }
 
     // Test removing self as final admin in a valid conversation
     // Should fail with InvalidAdmin error
     function testLocalRemoveAdminSelfAsLastAdmin() public {
         // Initiate a conversation
-        convIDA = appA.initiateConversation{ value: 100000 gwei }(domainsA, participantsA, convSeedA, convNameA);
+        convIDA = appA.initiateConversation{ value: 10000000 gwei }(domainsA, participantsA, convSeedA, convNameA);
         
         // Attempt to remove self from conversation as the last admin
         hevm.expectRevert(Hyperchat.InvalidAdmin.selector);
-        appA.removeAdmin{ value: 100000 gwei }(convIDA, addressToBytes32(address(this)), bytes("how do I exit vim"));
+        appA.removeAdmin{ value: 10000000 gwei }(convIDA, addressToBytes32(address(this)), bytes("how do I exit vim"));
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -899,9 +914,9 @@ contract HyperchatLocalTests is DSTestPlus {
     // Test valid admin adding a participant address to an existing conversation
     function testLocalAddParticipant() public {
         // Initiate a conversation
-        convIDA = appA.initiateConversation{ value: 100000 gwei }(domainsA, participantsA, convSeedA, convNameA);
+        convIDA = appA.initiateConversation{ value: 10000000 gwei }(domainsA, participantsA, convSeedA, convNameA);
         // Add 0xDEED to the conversation
-        appA.addParticipant{ value: 100000 gwei }(convIDA, addressToBytes32(address(0xDEED)), bytes(""));
+        appA.addParticipant{ value: 10000000 gwei }(convIDA, addressToBytes32(address(0xDEED)), bytes(""));
 
         // Retrieve conversation data after InitiateConversation
         (uint256 msgCountA,,) = appA.retrieveConversation(convIDA);
@@ -929,9 +944,9 @@ contract HyperchatLocalTests is DSTestPlus {
     // Test valid admin adding a participant address to an existing conversation with a custom message
     function testLocalAddParticipantWithCustomMessage() public {
         // Initiate a conversation
-        convIDA = appA.initiateConversation{ value: 100000 gwei }(domainsA, participantsA, convSeedA, convNameA);
+        convIDA = appA.initiateConversation{ value: 10000000 gwei }(domainsA, participantsA, convSeedA, convNameA);
         // Add 0xDEED to the conversation
-        appA.addParticipant{ value: 100000 gwei }(convIDA, addressToBytes32(address(0xDEED)), bytes("test"));
+        appA.addParticipant{ value: 10000000 gwei }(convIDA, addressToBytes32(address(0xDEED)), bytes("test"));
 
         // Retrieve conversation data after InitiateConversation
         (uint256 msgCountA,,) = appA.retrieveConversation(convIDA);
@@ -953,37 +968,37 @@ contract HyperchatLocalTests is DSTestPlus {
     // Should fail with InvalidParticipant error
     function testLocalAddParticipantDuplicate() public {
         // Initiate a conversation
-        convIDA = appA.initiateConversation{ value: 100000 gwei }(domainsA, participantsA, convSeedA, convNameA);
+        convIDA = appA.initiateConversation{ value: 10000000 gwei }(domainsA, participantsA, convSeedA, convNameA);
         // Add 0xDEED to the conversation
-        appA.addParticipant{ value: 100000 gwei }(convIDA, addressToBytes32(address(0xDEED)), bytes(""));
+        appA.addParticipant{ value: 10000000 gwei }(convIDA, addressToBytes32(address(0xDEED)), bytes(""));
 
         // Duplicate add 0xDEED as participant transaction
         // Expect InvalidParticipant error as duplicate additions are not allowed
         hevm.expectRevert(Hyperchat.InvalidParticipant.selector);
-        appA.addParticipant{ value: 100000 gwei }(convIDA, addressToBytes32(address(0xDEED)), bytes(""));
+        appA.addParticipant{ value: 10000000 gwei }(convIDA, addressToBytes32(address(0xDEED)), bytes(""));
     }
 
     // Test self-adding as participant to an already joined conversation
     // Should fail with InvalidParticipant error
     function testLocalAddParticipantSelf() public {
         // Initiate a conversation
-        convIDA = appA.initiateConversation{ value: 100000 gwei }(domainsA, participantsA, convSeedA, convNameA);
+        convIDA = appA.initiateConversation{ value: 10000000 gwei }(domainsA, participantsA, convSeedA, convNameA);
         // Add 0xDEED to the conversation
         // Expect InvalidParticipant error as address is already a participant
         hevm.expectRevert(Hyperchat.InvalidParticipant.selector);
-        appA.addParticipant{ value: 100000 gwei }(convIDA, addressToBytes32(address(this)), bytes(""));
+        appA.addParticipant{ value: 10000000 gwei }(convIDA, addressToBytes32(address(this)), bytes(""));
     }
 
     // Test adding a participant as a non-admin, but valid participant
     // Should fail with InvalidAdmin error
     function testLocalAddParticipantAsNonAdmin() public {
         // Initiate a conversation
-        convIDA = appA.initiateConversation{ value: 100000 gwei }(domainsA, participantsA, convSeedA, convNameA);
+        convIDA = appA.initiateConversation{ value: 10000000 gwei }(domainsA, participantsA, convSeedA, convNameA);
         // Add 0xDEED to the conversation as non-admin address 0xABCD
         // Expect InvalidAdmin error as 0xABCD is not an admin
         hevm.startPrank(address(0xABCD));
         hevm.expectRevert(Hyperchat.InvalidAdmin.selector);
-        appA.addParticipant{ value: 100000 gwei }(convIDA, addressToBytes32(address(0xDEED)), bytes(""));
+        appA.addParticipant{ value: 10000000 gwei }(convIDA, addressToBytes32(address(0xDEED)), bytes(""));
         hevm.stopPrank();
     }
 
@@ -991,24 +1006,24 @@ contract HyperchatLocalTests is DSTestPlus {
     // Should fail with InvalidAdmin error
     function testLocalAddParticipantAsNonParticipant() public {
         // Initiate a conversation
-        convIDA = appA.initiateConversation{ value: 100000 gwei }(domainsA, participantsA, convSeedA, convNameA);
+        convIDA = appA.initiateConversation{ value: 10000000 gwei }(domainsA, participantsA, convSeedA, convNameA);
         // Add 0xDEED to the conversation as non-participant 0xDEED
         // Expect InvalidAdmin error as 0xDEED is not a conversation participant so they cant be admin
         hevm.startPrank(address(0xDEED));
         hevm.expectRevert(Hyperchat.InvalidAdmin.selector);
-        appA.addParticipant{ value: 100000 gwei }(convIDA, addressToBytes32(address(0xDEED)), bytes(""));
+        appA.addParticipant{ value: 10000000 gwei }(convIDA, addressToBytes32(address(0xDEED)), bytes(""));
         hevm.stopPrank();
     }
 
     // Test sending a general message as a newly added participant to a valid conversation
     function testLocalGeneralMessageAsNewParticipant() public {
         // Initiate a conversation
-        convIDA = appA.initiateConversation{ value: 100000 gwei }(domainsA, participantsA, convSeedA, convNameA);
+        convIDA = appA.initiateConversation{ value: 10000000 gwei }(domainsA, participantsA, convSeedA, convNameA);
         // Add 0xDEED to the conversation
-        appA.addParticipant{ value: 100000 gwei }(convIDA, addressToBytes32(address(0xDEED)), bytes("hi 0xDEED"));
+        appA.addParticipant{ value: 10000000 gwei }(convIDA, addressToBytes32(address(0xDEED)), bytes("hi 0xDEED"));
         // Send message to the conversation as 0xDEED
         hevm.startPrank(address(0xDEED));
-        appA.generalMessage{ value: 100000 gwei }(convIDA, bytes("whats up deployer!"));
+        appA.generalMessage{ value: 10000000 gwei }(convIDA, bytes("whats up deployer!"));
         hevm.stopPrank();
 
         // Retrieve conversation message count and confirm for accuracy
@@ -1038,11 +1053,11 @@ contract HyperchatLocalTests is DSTestPlus {
     // Test valid admin removing a participant address from an existing conversation
     function testLocalRemoveParticipant() public {
         // Initiate a conversation
-        convIDA = appA.initiateConversation{ value: 100000 gwei }(domainsA, participantsA, convSeedA, convNameA);
+        convIDA = appA.initiateConversation{ value: 10000000 gwei }(domainsA, participantsA, convSeedA, convNameA);
         // Add 0xDEED to the conversation
-        appA.addParticipant{ value: 100000 gwei }(convIDA, addressToBytes32(address(0xDEED)), bytes(""));
+        appA.addParticipant{ value: 10000000 gwei }(convIDA, addressToBytes32(address(0xDEED)), bytes(""));
         // Remove 0xDEED from the conversation
-        appA.removeParticipant{ value: 100000 gwei }(convIDA, addressToBytes32(address(0xDEED)), bytes(""));
+        appA.removeParticipant{ value: 10000000 gwei }(convIDA, addressToBytes32(address(0xDEED)), bytes(""));
 
         // Retrieve conversation data after InitiateConversation
         (uint256 msgCountA,,) = appA.retrieveConversation(convIDA);
@@ -1070,11 +1085,11 @@ contract HyperchatLocalTests is DSTestPlus {
     // Test valid admin removing a participant address from an existing conversation with a custom message
     function testLocalRemoveParticipantWithCustomMessage() public {
         // Initiate a conversation
-        convIDA = appA.initiateConversation{ value: 100000 gwei }(domainsA, participantsA, convSeedA, convNameA);
+        convIDA = appA.initiateConversation{ value: 10000000 gwei }(domainsA, participantsA, convSeedA, convNameA);
         // Add 0xDEED to the conversation
-        appA.addParticipant{ value: 100000 gwei }(convIDA, addressToBytes32(address(0xDEED)), bytes(""));
+        appA.addParticipant{ value: 10000000 gwei }(convIDA, addressToBytes32(address(0xDEED)), bytes(""));
         // Remove 0xDEED from the conversation
-        appA.removeParticipant{ value: 100000 gwei }(convIDA, addressToBytes32(address(0xDEED)), bytes("test"));
+        appA.removeParticipant{ value: 10000000 gwei }(convIDA, addressToBytes32(address(0xDEED)), bytes("test"));
 
         // Retrieve conversation data after InitiateConversation
         (uint256 msgCountA,,) = appA.retrieveConversation(convIDA);
@@ -1096,30 +1111,30 @@ contract HyperchatLocalTests is DSTestPlus {
     // Should fail with InvalidParticipant error
     function testLocalRemoveParticipantDuplicate() public {
         // Initiate a conversation
-        convIDA = appA.initiateConversation{ value: 100000 gwei }(domainsA, participantsA, convSeedA, convNameA);
+        convIDA = appA.initiateConversation{ value: 10000000 gwei }(domainsA, participantsA, convSeedA, convNameA);
         // Add 0xDEED to the conversation
-        appA.addParticipant{ value: 100000 gwei }(convIDA, addressToBytes32(address(0xDEED)), bytes(""));
+        appA.addParticipant{ value: 10000000 gwei }(convIDA, addressToBytes32(address(0xDEED)), bytes(""));
         // Remove 0xDEED from the conversation
-        appA.removeParticipant{ value: 100000 gwei }(convIDA, addressToBytes32(address(0xDEED)), bytes(""));
+        appA.removeParticipant{ value: 10000000 gwei }(convIDA, addressToBytes32(address(0xDEED)), bytes(""));
 
         // Duplicate remove 0xDEED as participant transaction
         // Expect InvalidParticipant error as address is no longer a participant
         hevm.expectRevert(Hyperchat.InvalidParticipant.selector);
-        appA.removeParticipant{ value: 100000 gwei }(convIDA, addressToBytes32(address(0xDEED)), bytes(""));
+        appA.removeParticipant{ value: 10000000 gwei }(convIDA, addressToBytes32(address(0xDEED)), bytes(""));
     }
 
     // Test self-removing as participant to an already joined conversation
     // Should fail with InvalidAdmin error
     function testLocalRemoveParticipantSelfAsNonAdmin() public {
         // Initiate a conversation
-        convIDA = appA.initiateConversation{ value: 100000 gwei }(domainsA, participantsA, convSeedA, convNameA);
+        convIDA = appA.initiateConversation{ value: 10000000 gwei }(domainsA, participantsA, convSeedA, convNameA);
         
         // Prank as non-admin address 0xABCD
         hevm.startPrank(address(0xABCD));
         // Expect self-removal to fail as 0xABCD is not an admin
         hevm.expectRevert(Hyperchat.InvalidAdmin.selector);
         // Remove 0xDEED from the conversation
-        appA.removeParticipant{ value: 100000 gwei }(convIDA, addressToBytes32(address(0xABCD)), bytes(""));
+        appA.removeParticipant{ value: 10000000 gwei }(convIDA, addressToBytes32(address(0xABCD)), bytes(""));
         hevm.stopPrank();
     }
 
@@ -1127,15 +1142,15 @@ contract HyperchatLocalTests is DSTestPlus {
     // Should fail with InvalidAdmin error
     function testLocalRemoveParticipantSelfAsAdmin() public {
         // Initiate a conversation (initiator is automatically admin)
-        convIDA = appA.initiateConversation{ value: 100000 gwei }(domainsA, participantsA, convSeedA, convNameA);
+        convIDA = appA.initiateConversation{ value: 10000000 gwei }(domainsA, participantsA, convSeedA, convNameA);
         // Remove admin self from the conversation
         // Expect InvalidAdmin error as active admins cannot remove themselves
         hevm.expectRevert(Hyperchat.InvalidAdmin.selector);
         if (address(this) == deployerAddress) {
-            appA.removeParticipant{ value: 100000 gwei }(convIDA, deployerAddressBytes, bytes(""));
+            appA.removeParticipant{ value: 10000000 gwei }(convIDA, deployerAddressBytes, bytes(""));
         }
         else if (address(this) == deployerAddress2) {
-            appA.removeParticipant{ value: 100000 gwei }(convIDA, deployerAddress2Bytes, bytes(""));
+            appA.removeParticipant{ value: 10000000 gwei }(convIDA, deployerAddress2Bytes, bytes(""));
         }
         else { revert(); }
     }
@@ -1144,12 +1159,12 @@ contract HyperchatLocalTests is DSTestPlus {
     // Should fail with InvalidAdmin error
     function testLocalRemoveParticipantAsNonParticipant() public {
         // Initiate a conversation
-        convIDA = appA.initiateConversation{ value: 100000 gwei }(domainsA, participantsA, convSeedA, convNameA);
+        convIDA = appA.initiateConversation{ value: 10000000 gwei }(domainsA, participantsA, convSeedA, convNameA);
         // Remove 0xABCD from the conversation as non-participant 0xDEED
         // Expect InvalidAdmin error as 0xDEED is not a conversation admin/participant
         hevm.startPrank(address(0xDEED));
         hevm.expectRevert(Hyperchat.InvalidAdmin.selector);
-        appA.addParticipant{ value: 100000 gwei }(convIDA, addressToBytes32(address(0xABCD)), bytes(""));
+        appA.addParticipant{ value: 10000000 gwei }(convIDA, addressToBytes32(address(0xABCD)), bytes(""));
         hevm.stopPrank();
     }
 
@@ -1157,14 +1172,14 @@ contract HyperchatLocalTests is DSTestPlus {
     // Should fail with InvalidParticipant error
     function testLocalGeneralMessageAfterRemovalFromConversation() public {
         // Initiate a conversation
-        convIDA = appA.initiateConversation{ value: 100000 gwei }(domainsA, participantsA, convSeedA, convNameA);
+        convIDA = appA.initiateConversation{ value: 10000000 gwei }(domainsA, participantsA, convSeedA, convNameA);
         // Remove 0xABCD from the conversation
-        appA.removeParticipant{ value: 100000 gwei }(convIDA, addressToBytes32(address(0xABCD)), bytes("cya later"));
+        appA.removeParticipant{ value: 10000000 gwei }(convIDA, addressToBytes32(address(0xABCD)), bytes("cya later"));
         // Attempt to send a general message as 0xABCD to convIDA
         // Expect InvalidParticipant error
         hevm.startPrank(address(0xABCD));
         hevm.expectRevert(Hyperchat.InvalidParticipant.selector);
-        appA.generalMessage{ value: 100000 gwei }(convIDA, bytes("screw you!"));
+        appA.generalMessage{ value: 10000000 gwei }(convIDA, bytes("screw you!"));
         hevm.stopPrank();
     }
 
@@ -1175,9 +1190,9 @@ contract HyperchatLocalTests is DSTestPlus {
     // Test sending a general message as a valid participant and admin to a valid conversation
     function testLocalGeneralMessage() public {
         // Initiate a conversation
-        convIDA = appA.initiateConversation{ value: 100000 gwei }(domainsA, participantsA, convSeedA, convNameA);
+        convIDA = appA.initiateConversation{ value: 10000000 gwei }(domainsA, participantsA, convSeedA, convNameA);
         // Send a message
-        appA.generalMessage{ value: 100000 gwei }(convIDA, bytes("GeneralMessage"));
+        appA.generalMessage{ value: 10000000 gwei }(convIDA, bytes("GeneralMessage"));
 
         // Retrieve conversation data after InitiateConversation
         (uint256 msgCountA,,) = appA.retrieveConversation(convIDA);
@@ -1204,10 +1219,10 @@ contract HyperchatLocalTests is DSTestPlus {
     // Test sending a general message as a normal valid conversation participant
     function testLocalGeneralMessageAsParticipant() public {
         // Initiate a conversation
-        convIDA = appA.initiateConversation{ value: 100000 gwei }(domainsA, participantsA, convSeedA, convNameA);
+        convIDA = appA.initiateConversation{ value: 10000000 gwei }(domainsA, participantsA, convSeedA, convNameA);
         // Send a message as 0xABCD
         hevm.startPrank(address(0xABCD));
-        appA.generalMessage{ value: 100000 gwei }(convIDA, bytes("GeneralMessage"));
+        appA.generalMessage{ value: 10000000 gwei }(convIDA, bytes("GeneralMessage"));
         hevm.stopPrank();
 
         // Retrieve GeneralMessage message with retrieveMessages() function
@@ -1222,11 +1237,11 @@ contract HyperchatLocalTests is DSTestPlus {
     // Should fail with InvalidParticipant
     function testLocalGeneralMessageAsNonParticipant() public {
         // Initiate a conversation
-        convIDA = appA.initiateConversation{ value: 100000 gwei }(domainsA, participantsA, convSeedA, convNameA);
+        convIDA = appA.initiateConversation{ value: 10000000 gwei }(domainsA, participantsA, convSeedA, convNameA);
         // Send a message to convIDA as 0xDEED
         hevm.startPrank(address(0xDEED));
         hevm.expectRevert(Hyperchat.InvalidParticipant.selector);
-        appA.generalMessage{ value: 100000 gwei }(convIDA, bytes("whoops"));
+        appA.generalMessage{ value: 10000000 gwei }(convIDA, bytes("whoops"));
         hevm.stopPrank();
     }
 
@@ -1234,10 +1249,10 @@ contract HyperchatLocalTests is DSTestPlus {
     // Should fail with InvalidMessage error
     function testLocalGeneralMessageNoMessage() public {
         // Initiate a conversation
-        convIDA = appA.initiateConversation{ value: 100000 gwei }(domainsA, participantsA, convSeedA, convNameA);
+        convIDA = appA.initiateConversation{ value: 10000000 gwei }(domainsA, participantsA, convSeedA, convNameA);
         // Send an empty message
         hevm.expectRevert(Hyperchat.InvalidMessage.selector);
-        appA.generalMessage{ value: 100000 gwei }(convIDA, bytes(""));
+        appA.generalMessage{ value: 10000000 gwei }(convIDA, bytes(""));
     }
 
     // Test sending a general message to a conversation that doesn't exist
@@ -1245,6 +1260,6 @@ contract HyperchatLocalTests is DSTestPlus {
     function testLocalGeneralMessageInvalidConversation() public {
         // Send an empty message to a conversationID that doesn't exist
         hevm.expectRevert(Hyperchat.InvalidConversation.selector);
-        appA.generalMessage{ value: 100000 gwei }(bytes32("2"), bytes("knock knock"));
+        appA.generalMessage{ value: 10000000 gwei }(bytes32("2"), bytes("knock knock"));
     }
 }
